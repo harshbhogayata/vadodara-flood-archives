@@ -1124,17 +1124,19 @@ input[type="range"]::-moz-range-thumb {
 
     /* Collapsed State */
     .glass-sidebar.collapsed {
-        height: 60px;
-        max-height: 60px;
-        overflow: hidden;
+        height: 50px;
+        min-height: 50px;
+        max-height: 50px;
+        padding-bottom: 0;
     }
 
     .glass-sidebar.collapsed .sidebar-content {
         display: none;
     }
 
-    .glass-sidebar.collapsed .fab-locate {
-        bottom: 80px;
+    /* Keep handle visible when collapsed */
+    .glass-sidebar.collapsed .sidebar-collapse-handle {
+        padding: 16px 0;
     }
 
     .fab-locate {
@@ -1152,17 +1154,27 @@ input[type="range"]::-moz-range-thumb {
     .glass-sidebar.collapsed {
         height: 50px;
         max-height: 50px;
+        min-height: 50px;
+        padding: 0;
+        /* Remove padding to ensure handle fits */
+    }
+
+    .glass-sidebar.collapsed .sidebar-collapse-handle {
+        padding: 12px 0;
+        /* Center the handle */
     }
 
     .fab-locate {
-        bottom: 52vh;
+        bottom: 55vh;
         padding: 0.6rem 1rem;
         font-size: 0.8rem;
     }
 
-    .glass-sidebar.collapsed+.fab-locate,
+    /* Target FAB using ID for higher specificity if needed, or general sibling */
+    #sidebar.collapsed~#locateBtn,
     .glass-sidebar.collapsed~.fab-locate {
-        bottom: 70px;
+        bottom: 90px !important;
+        /* Force it up */
     }
 
     .segmented-control label {
