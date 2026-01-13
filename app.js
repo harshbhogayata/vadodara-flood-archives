@@ -50,30 +50,111 @@ function switchTab(tabName) {
     }
 }
 
+// Mobile Sidebar Drag Logic
+document.addEventListener('DOMContentLoaded', () => {
+    const sidebar = document.getElementById('sidebar');
+    const handle = document.querySelector('.sidebar-collapse-handle');
+
+    if (!sidebar || !handle) return;
+
+    let startY = 0;
+    let startHeight = 0;
+    let currentHeight = 0;
+    let isDragging = false;
+    let hasMoved = false;
+
+    // Minimum pixels to consider a drag
+    const DRAG_THRESHOLD = 10;
+
+    handle.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].clientY;
+        startHeight = sidebar.offsetHeight;
+        isDragging = false;
+        hasMoved = false;
+
+        sidebar.style.transition = 'none';
+        const fab = document.getElementById('locateBtn');
+        if (fab) fab.style.transition = 'none';
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        const currentY = e.touches[0].clientY;
+        const deltaY = startY - currentY;
+
+        if (!isDragging) {
+            if (Math.abs(deltaY) > DRAG_THRESHOLD) {
+                isDragging = true;
+            } else {
+                return;
+            }
+        }
+
+        if (e.cancelable && isDragging) e.preventDefault();
+
+        currentHeight = startHeight + deltaY;
+        hasMoved = true;
+
+        const maxHeight = window.innerHeight * 0.9;
+        if (currentHeight < 50) currentHeight = 50;
+        if (currentHeight > maxHeight) currentHeight = maxHeight;
+
+        sidebar.style.height = `${currentHeight}px`;
+
+        const fab = document.getElementById('locateBtn');
+        if (fab) fab.style.bottom = `${currentHeight + 20}px`;
+    }, { passive: false });
+
+    document.addEventListener('touchend', (e) => {
+        sidebar.style.transition = 'height 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        const fab = document.getElementById('locateBtn');
+        if (fab) fab.style.transition = 'bottom 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+
+        if (!hasMoved) {
+            toggleSidebar();
+            return;
+        } // Only if truly dragged
+
+        if (!isDragging) return;
+        isDragging = false;
+
+        const windowHeight = window.innerHeight;
+        const collapseThreshold = 120;
+        const maximizeThreshold = windowHeight * 0.65;
+
+        if (currentHeight < collapseThreshold) {
+            sidebar.classList.add('collapsed');
+            sidebar.style.height = '';
+            if (fab) fab.style.bottom = '';
+        } else if (currentHeight > maximizeThreshold) {
+            sidebar.classList.remove('collapsed');
+            sidebar.style.height = '90vh';
+            if (fab) fab.style.bottom = 'calc(90vh + 20px)';
+        } else {
+            sidebar.classList.remove('collapsed');
+            sidebar.style.height = '';
+            if (fab) fab.style.bottom = '';
+        }
+    });
+
+    handle.addEventListener('click', (e) => {
+        if (hasMoved || isDragging) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+    });
+});
+
 // Toggle Sidebar Collapse (Mobile)
 function toggleSidebar(event) {
     if (event) event.stopPropagation();
     const sidebar = document.getElementById('sidebar');
     if (sidebar) {
         sidebar.classList.toggle('collapsed');
+        sidebar.style.height = '';
+        const fab = document.getElementById('locateBtn');
+        if (fab) fab.style.bottom = '';
     }
 }
-
-// Add click listener to sidebar to expand if collapsed
-document.addEventListener('DOMContentLoaded', () => {
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) {
-        sidebar.addEventListener('click', (e) => {
-            // If collapsed and user clicks anywhere on sidebar (except buttons), expand it
-            if (sidebar.classList.contains('collapsed')) {
-                // Don't trigger if they clicked the handle (it already toggles)
-                if (!e.target.closest('.sidebar-collapse-handle')) {
-                    sidebar.classList.remove('collapsed');
-                }
-            }
-        });
-    }
-});
 
 // Generate Zone Cards for Analysis Tab (All 50 Zones)
 function generateZoneCards() {
