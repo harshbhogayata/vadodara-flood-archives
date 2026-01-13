@@ -50,122 +50,95 @@ function switchTab(tabName) {
     }
 }
 
-// Mobile Sidebar Drag Logic
+// DRAGGABLE BOTTOM SHEET LOGIC (3-Step Physics)
 document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.getElementById('sidebar');
-    const handle = document.querySelector('.sidebar-collapse-handle');
+    const dragHandle = document.getElementById('drag-handle-area');
 
-    if (!sidebar || !handle) return;
+    // Fallback/Safety check
+    if (!sidebar || !dragHandle) return;
 
     let startY = 0;
     let startHeight = 0;
-    let currentHeight = 0;
     let isDragging = false;
-    let hasMoved = false;
 
-    // Minimum pixels to consider a drag
-    const DRAG_THRESHOLD = 10;
-
-    handle.addEventListener('touchstart', (e) => {
+    // 1. TOUCH START
+    dragHandle.addEventListener('touchstart', (e) => {
+        isDragging = true;
         startY = e.touches[0].clientY;
-        startHeight = sidebar.offsetHeight;
-        isDragging = false;
-        hasMoved = false;
 
-        sidebar.style.transition = 'none';
+        // Get current visual height (in pixels)
+        startHeight = sidebar.getBoundingClientRect().height;
 
-    }, { passive: true });
-
-    document.addEventListener('touchmove', (e) => {
-        const currentY = e.touches[0].clientY;
-        const deltaY = startY - currentY;
-
-        if (!isDragging) {
-            if (Math.abs(deltaY) > DRAG_THRESHOLD) {
-                isDragging = true;
-                // IMPORTANT: Remove 'collapsed' class so CSS !important doesn't override JS positioning
-                if (sidebar.classList.contains('collapsed')) {
-                    sidebar.style.height = startHeight + 'px';
-                    sidebar.classList.remove('collapsed');
-                }
-            } else {
-                return;
-            }
-        }
-
-        if (e.cancelable && isDragging) e.preventDefault();
-
-        currentHeight = startHeight + deltaY;
-        hasMoved = true;
-
-        const maxHeight = window.innerHeight * 0.9;
-        if (currentHeight < 50) currentHeight = 50;
-        if (currentHeight > maxHeight) currentHeight = maxHeight;
-
-        sidebar.style.height = `${currentHeight}px`;
-
-
+        // Disable animation while dragging
+        sidebar.classList.add('is-dragging');
     }, { passive: false });
 
-    document.addEventListener('touchend', (e) => {
-        // Restore transitions
-        sidebar.style.transition = 'height 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    // 2. TOUCH MOVE (The Drag)
+    document.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
 
+        // Prevent default scrolling of the page
+        if (e.cancelable) e.preventDefault();
 
-        if (!hasMoved) {
-            toggleSidebar();
-            return;
-        }
+        const currentY = e.touches[0].clientY;
+        const deltaY = startY - currentY; // Up is positive
 
+        // Calculate new height (px)
+        const newHeight = startHeight + deltaY;
+
+        // Apply new height instantly
+        sidebar.style.height = `${newHeight}px`;
+    }, { passive: false });
+
+    // 3. TOUCH END (The Snap)
+    document.addEventListener('touchend', () => {
         if (!isDragging) return;
         isDragging = false;
+        sidebar.classList.remove('is-dragging');
 
+        // Get final height to decide where to snap
+        const finalHeight = sidebar.getBoundingClientRect().height;
         const windowHeight = window.innerHeight;
 
-        // Directional Snap Logic (Better UX)
-        const draggedUp = currentHeight > startHeight + 20; // Dragged up a bit
-        const draggedDown = currentHeight < startHeight - 20; // Dragged down a bit
-
-        let targetState = 'expanded'; // Default target
-
-        if (startHeight < 100 && draggedUp) {
-            // Was collapsed, user dragged up -> Go to Expanded
-            targetState = 'expanded';
-        } else if (currentHeight < 120) {
-            // Absolute position is very low -> Collapse
-            targetState = 'collapsed';
-        } else if (currentHeight > windowHeight * 0.65) {
-            // Absolute position is high -> Maximize
-            targetState = 'maximized';
-        } else if (draggedDown && startHeight > 200) {
-            // Was expanded, user dragged down -> Collapse
-            targetState = 'collapsed';
-        }
-
-        // Apply State
-        if (targetState === 'collapsed') {
-            sidebar.classList.add('collapsed');
-            sidebar.style.height = '';
-
-        } else if (targetState === 'maximized') {
-            sidebar.classList.remove('collapsed');
+        // Logic: Where should it snap?
+        if (finalHeight > windowHeight * 0.6) {
+            // Snap to FULL (90vh)
             sidebar.style.height = '90vh';
-
+            sidebar.classList.add('sheet-expanded');
+            sidebar.classList.remove('sheet-collapsed');
+        } else if (finalHeight < windowHeight * 0.25) {
+            // Snap to MINIMIZED (12vh)
+            sidebar.style.height = '12vh';
+            sidebar.classList.add('sheet-collapsed');
+            sidebar.classList.remove('sheet-expanded');
         } else {
-            // Expanded (Default)
-            sidebar.classList.remove('collapsed');
-            sidebar.style.height = '';
-
+            // Snap to DEFAULT (40vh)
+            sidebar.style.height = '40vh';
+            sidebar.classList.remove('sheet-expanded');
+            sidebar.classList.remove('sheet-collapsed');
         }
     });
 
-    handle.addEventListener('click', (e) => {
-        if (hasMoved || isDragging) {
-            e.stopPropagation();
-            e.preventDefault();
+    // 4. CLICK TO TOGGLE (For tap interaction)
+    dragHandle.addEventListener('click', () => {
+        // Simple logic: if small, open. If big, close.
+        const h = sidebar.getBoundingClientRect().height;
+        const isSmall = h < window.innerHeight * 0.3;
+
+        if (isSmall) {
+            sidebar.style.height = '40vh'; // Open
+            sidebar.classList.remove('sheet-collapsed');
+        } else {
+            sidebar.style.height = '12vh'; // Close
+            sidebar.classList.add('sheet-collapsed');
+            sidebar.classList.remove('sheet-expanded');
         }
     });
 });
+
+
+
 
 // Toggle Sidebar Collapse (Mobile)
 function toggleSidebar(event) {
