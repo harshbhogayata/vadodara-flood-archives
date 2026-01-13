@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Primary Meta Tags -->
+    <title>Vadodara Flood Archives | Risk Intelligence</title>
+    <meta name="title" content="Vadodara Flood Archives | Risk Intelligence">
+    <meta name="description"
+        content="Check flood risk for your area in Vadodara based on 2019-2025 satellite data. Interactive simulator and safety maps.">
+    <meta name="keywords"
+        content="Vadodara flood, flood map, Vishwamitri river, flood risk, Gujarat flood, VMC, ISRO, flood warning">
+    <meta name="author" content="Civic Tech Initiative">
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://dhamdrishti.vercel.app/">
+    <meta property="og:title" content="Vadodara Flood Archives 🌧️">
+    <meta property="og:description"
+        content="Is your society in a Red Zone? Check historical flood data and run risk simulations for 50+ verified locations.">
+    <meta property="og:image" content="https://dhamdrishti.vercel.app/social-preview.png">
+    <meta property="og:locale" content="en_IN">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://dhamdrishti.vercel.app/">
+    <meta property="twitter:title" content="Vadodara Flood Archives 🌧️">
+    <meta property="twitter:description"
+        content="Is your society in a Red Zone? Check historical flood data and run risk simulations.">
+    <meta property="twitter:image" content="https://dhamdrishti.vercel.app/social-preview.png">
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#0a0a0a">
+    <meta name="msapplication-TileColor" content="#0a0a0a">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Leaflet Geocoder CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Legal Disclaimer Modal -->
+    <div id="disclaimerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚠️ Legal Disclaimer</h2>
+            </div>
+            <div class="modal-body">
+                <p><strong>This is a public research archive, NOT an official flood warning system.</strong></p>
+
+                <ul>
+                    <li><strong>No Guarantee:</strong> Based on historical data (2019-2025). Past flooding does NOT
+                        guarantee future safety or risk.</li>
+                    <li><strong>Not for Real Estate:</strong> Do NOT use as sole criterion for property decisions.</li>
+                    <li><strong>No Liability:</strong> The creator assumes NO liability for damages from reliance on
+                        this information.</li>
+                    <li><strong>Official Sources:</strong> For evacuation orders, contact VMC directly.</li>
+                </ul>
+
+                <p style="color: var(--text-muted); font-size: 0.85rem;">By continuing, you acknowledge this is a
+                    <em>community research tool</em> and not a substitute for official alerts.
+                </p>
+            </div>
+            <div class="modal-actions">
+                <button id="acceptDisclaimer" class="btn-primary">I Understand — Enter Map</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" class="app-hidden">
+
+        <!-- Fullscreen Map -->
+        <div id="map"></div>
+
+        <!-- Floating Glass Sidebar -->
+        <aside class="glass-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h1 data-i18n="appTitle">Flood Archives</h1>
+                        <p data-i18n="appSubtitle">Vadodara Risk Intelligence</p>
+                    </div>
+                    <button id="langToggle" class="lang-toggle" onclick="toggleLanguage()"
+                        title="Switch to Gujarati">ગુ</button>
+                </div>
+            </div>
+
+            <!-- Segmented Control Toggle -->
+            <div class="segmented-control">
+                <input type="radio" name="tab" id="tab-1" checked>
+                <label for="tab-1" data-i18n="tabSimulator">⚡ Simulator</label>
+
+                <input type="radio" name="tab" id="tab-2">
+                <label for="tab-2" data-i18n="tabAnalysis">📊 Analysis</label>
+
+                <div class="glider"></div>
+            </div>
+
+            <!-- Tab 1: Simulator Panel -->
+            <div id="panel-simulator" class="tab-content active">
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Ajwa Dam Level</span>
+                        <span class="slider-value" id="ajwaValue">212.0 ft</span>
+                    </div>
+                    <input type="range" id="ajwaLevel" min="210" max="215" step="0.5" value="212">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Rainfall (24hr)</span>
+                        <span class="slider-value" id="rainValue">0 in</span>
+                    </div>
+                    <input type="range" id="localRain" min="0" max="10" step="0.5" value="0">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-label"><span>Dhadhar River</span></div>
+                    <select id="dhadharStatus" class="status-select">
+                        <option value="NORMAL">Normal Flow</option>
+                        <option value="HIGH">High (Backflow Risk)</option>
+                    </select>
+                </div>
+
+                <button id="runSimulation" class="btn-simulate">
+                    ⚡ Run Forecast
+                </button>
+
+                <!-- Prediction Results -->
+                <div id="predictionResults" class="prediction-results hidden">
+                    <h3>Results</h3>
+                    <div id="resultsList"></div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Analysis Panel (All Zones) -->
+            <div id="panel-analysis" class="tab-content">
+                <div class="zone-search-container">
+                    <input type="text" id="zoneSearch" class="zone-search-input"
+                        placeholder="🔍 Search zones (e.g., Vadsar)..." oninput="filterZones()">
+                </div>
+                <div id="zonesContainer" class="zones-container">
+                    <!-- Zone cards will be dynamically generated here -->
+                </div>
+                <div id="zoneCount" class="zone-count"></div>
+            </div>
+
+            <!-- Footer -->
+            <div class="sidebar-footer">
+                <a href="#" id="disclaimerLink">Disclaimer</a> · <a href="#" id="aboutBtn">About</a>
+            </div>
+        </aside>
+
+        <!-- Floating Action Button - "Am I Safe?" -->
+        <button id="locateBtn" class="fab-locate">
+            <span class="icon">📍</span>
+            Am I Safe?
+        </button>
+
+        <!-- Map Legend -->
+        <div class="map-legend">
+            <h4>Risk Levels</h4>
+            <div class="legend-item">
+                <span class="legend-dot critical"></span>
+                <span>Critical (≥70)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot high"></span>
+                <span>High (≥40)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot moderate"></span>
+                <span>Moderate (≥15)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot low"></span>
+                <span>Low Risk</span>
+            </div>
+            <div class="legend-item"
+                style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--glass-border);">
+                <span class="legend-river"></span>
+                <span>Vishwamitri</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>About This Archive</h2>
+                <button class="modal-close" id="closeAbout">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3 style="margin-bottom: 0.75rem; color: var(--text-primary);">Methodology</h3>
+                <p>Risk scores are calculated using a <strong>Weighted Scoring Algorithm</strong>:</p>
+                <ul>
+                    <li>2024/2025 Status: 35 points each (most relevant)</li>
+                    <li>2019 Status: 20 points (historic benchmark)</li>
+                    <li>Severity Multiplier: Submerged/Marooned = 1.0x, Waterlogged = 0.5x</li>
+                </ul>
+
+                <h3 style="margin: 1rem 0 0.75rem; color: var(--text-primary);">Data Sources</h3>
+                <ul>
+                    <li><strong>Satellite:</strong> ISRO Bhuvan (Sentinel-1A)</li>
+                    <li><strong>Government:</strong> VMC Bulletins (2019-2025)</li>
+                    <li><strong>News:</strong> Times of India, DeshGujarat, ABP</li>
+                </ul>
+
+                <h3 style="margin: 1rem 0 0.75rem; color: var(--text-primary);">River Physics</h3>
+                <ul>
+                    <li><strong>Danger Level:</strong> 26 ft</li>
+                    <li><strong>Critical Level:</strong> 31 ft (water enters city)</li>
+                    <li><strong>2024 Record:</strong> 37 ft</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="data.js"></script>
+    <script src="translations.js"></script>
+    <script src="app.js"></script>
+    <script>
+        // Initialize language on page load
+        document.addEventListener('DOMContentLoaded', initLanguage);
+    </script>
+
+    <!-- GoatCounter Analytics -->
+    <script data-goatcounter="https://harshbhogayata.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+
+</html>
