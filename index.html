@@ -81,81 +81,88 @@
         <div id="map"></div>
 
         <!-- Floating Glass Sidebar -->
-        <aside class="glass-sidebar">
-            <div class="sidebar-header">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
-                        <h1 data-i18n="appTitle">Flood Archives</h1>
-                        <p data-i18n="appSubtitle">Vadodara Risk Intelligence</p>
+        <aside class="glass-sidebar" id="sidebar">
+            <!-- Mobile Collapse Handle -->
+            <div class="sidebar-collapse-handle" onclick="toggleSidebar()">
+                <div class="handle-bar"></div>
+            </div>
+
+            <div class="sidebar-content">
+                <div class="sidebar-header">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <h1 data-i18n="appTitle">Flood Archives</h1>
+                            <p data-i18n="appSubtitle">Vadodara Risk Intelligence</p>
+                        </div>
+                        <button id="langToggle" class="lang-toggle" onclick="toggleLanguage()"
+                            title="Switch to Gujarati">ગુ</button>
                     </div>
-                    <button id="langToggle" class="lang-toggle" onclick="toggleLanguage()"
-                        title="Switch to Gujarati">ગુ</button>
                 </div>
-            </div>
 
-            <!-- Segmented Control Toggle -->
-            <div class="segmented-control">
-                <input type="radio" name="tab" id="tab-1" checked>
-                <label for="tab-1" data-i18n="tabSimulator">⚡ Simulator</label>
+                <!-- Segmented Control Toggle -->
+                <div class="segmented-control">
+                    <input type="radio" name="tab" id="tab-1" checked>
+                    <label for="tab-1" data-i18n="tabSimulator">⚡ Simulator</label>
 
-                <input type="radio" name="tab" id="tab-2">
-                <label for="tab-2" data-i18n="tabAnalysis">📊 Analysis</label>
+                    <input type="radio" name="tab" id="tab-2">
+                    <label for="tab-2" data-i18n="tabAnalysis">📊 Analysis</label>
 
-                <div class="glider"></div>
-            </div>
+                    <div class="glider"></div>
+                </div>
 
-            <!-- Tab 1: Simulator Panel -->
-            <div id="panel-simulator" class="tab-content active">
-                <div class="slider-group">
-                    <div class="slider-label">
-                        <span>Ajwa Dam Level</span>
-                        <span class="slider-value" id="ajwaValue">212.0 ft</span>
+                <!-- Tab 1: Simulator Panel -->
+                <div id="panel-simulator" class="tab-content active">
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>Ajwa Dam Level</span>
+                            <span class="slider-value" id="ajwaValue">212.0 ft</span>
+                        </div>
+                        <input type="range" id="ajwaLevel" min="210" max="215" step="0.5" value="212">
                     </div>
-                    <input type="range" id="ajwaLevel" min="210" max="215" step="0.5" value="212">
-                </div>
 
-                <div class="slider-group">
-                    <div class="slider-label">
-                        <span>Rainfall (24hr)</span>
-                        <span class="slider-value" id="rainValue">0 in</span>
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>Rainfall (24hr)</span>
+                            <span class="slider-value" id="rainValue">0 in</span>
+                        </div>
+                        <input type="range" id="localRain" min="0" max="10" step="0.5" value="0">
                     </div>
-                    <input type="range" id="localRain" min="0" max="10" step="0.5" value="0">
+
+                    <div class="slider-group">
+                        <div class="slider-label"><span>Dhadhar River</span></div>
+                        <select id="dhadharStatus" class="status-select">
+                            <option value="NORMAL">Normal Flow</option>
+                            <option value="HIGH">High (Backflow Risk)</option>
+                        </select>
+                    </div>
+
+                    <button id="runSimulation" class="btn-simulate">
+                        ⚡ Run Forecast
+                    </button>
+
+                    <!-- Prediction Results -->
+                    <div id="predictionResults" class="prediction-results hidden">
+                        <h3>Results</h3>
+                        <div id="resultsList"></div>
+                    </div>
                 </div>
 
-                <div class="slider-group">
-                    <div class="slider-label"><span>Dhadhar River</span></div>
-                    <select id="dhadharStatus" class="status-select">
-                        <option value="NORMAL">Normal Flow</option>
-                        <option value="HIGH">High (Backflow Risk)</option>
-                    </select>
+                <!-- Tab 2: Analysis Panel (All Zones) -->
+                <div id="panel-analysis" class="tab-content">
+                    <div class="zone-search-container">
+                        <input type="text" id="zoneSearch" class="zone-search-input"
+                            placeholder="🔍 Search zones (e.g., Vadsar)..." oninput="filterZones()">
+                    </div>
+                    <div id="zonesContainer" class="zones-container">
+                        <!-- Zone cards will be dynamically generated here -->
+                    </div>
+                    <div id="zoneCount" class="zone-count"></div>
                 </div>
 
-                <button id="runSimulation" class="btn-simulate">
-                    ⚡ Run Forecast
-                </button>
-
-                <!-- Prediction Results -->
-                <div id="predictionResults" class="prediction-results hidden">
-                    <h3>Results</h3>
-                    <div id="resultsList"></div>
+                <!-- Footer -->
+                <div class="sidebar-footer">
+                    <a href="#" id="disclaimerLink">Disclaimer</a> · <a href="#" id="aboutBtn">About</a>
                 </div>
-            </div>
-
-            <!-- Tab 2: Analysis Panel (All Zones) -->
-            <div id="panel-analysis" class="tab-content">
-                <div class="zone-search-container">
-                    <input type="text" id="zoneSearch" class="zone-search-input"
-                        placeholder="🔍 Search zones (e.g., Vadsar)..." oninput="filterZones()">
-                </div>
-                <div id="zonesContainer" class="zones-container">
-                    <!-- Zone cards will be dynamically generated here -->
-                </div>
-                <div id="zoneCount" class="zone-count"></div>
-            </div>
-
-            <!-- Footer -->
-            <div class="sidebar-footer">
-                <a href="#" id="disclaimerLink">Disclaimer</a> · <a href="#" id="aboutBtn">About</a>
             </div>
         </aside>
 

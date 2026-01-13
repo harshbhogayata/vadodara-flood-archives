@@ -42,6 +42,20 @@ function switchTab(tabName) {
     if (tabName === 'analysis') {
         generateZoneCards();
     }
+
+    // Expand sidebar when switching tabs on mobile
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && sidebar.classList.contains('collapsed')) {
+        sidebar.classList.remove('collapsed');
+    }
+}
+
+// Toggle Sidebar Collapse (Mobile)
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('collapsed');
+    }
 }
 
 // Generate Zone Cards for Analysis Tab (All 50 Zones)
