@@ -50,6 +50,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // Language Toggle
     const langToggle = document.getElementById('langToggle');
     if (langToggle) langToggle.addEventListener('click', toggleLanguage);
+
+    // Community Layer Toggle
+    const communityToggle = document.getElementById('community-toggle');
+    if (communityToggle) communityToggle.addEventListener('click', toggleCommunityLayer);
 });
 
 // Tab Switching Function
@@ -433,6 +437,9 @@ function initializeMap() {
 
     // Add flood zone markers
     addFloodZoneMarkers();
+
+    // Load community reports layer (crowdsourced data)
+    loadCommunityReports();
 }
 
 // Add Vishwamitri River Path as Context Layer
@@ -801,6 +808,266 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
+
+// ========================================
+// LIVE COMMUNITY LAYER (Crowdsourced Reports)
+// ========================================
+
+let communityMarkers = []; // Track community markers for toggle
+let communityLayerVisible = true;
+
+/**
+ * Load and display community flood reports from Google Sheets
+ * Reports are submitted via Tally form → Google Sheets → Published as CSV
+ */
+async function loadCommunityReports() {
+    // Google Sheets CSV URL - Published from Tally integration
+    // Updates automatically when new reports are approved
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRguoBxzzi0hEXpbk0hu5hivwy131-l8FRQlumD22urDW1AUiikLSAYGyZneFphJRtA0fr4vLW82na4/pub?output=csv';
+
+    // If URL not configured yet, skip
+    if (SHEET_URL === 'YOUR_GOOGLE_SHEET_CSV_URL') {
+        console.log('📊 Community layer not configured yet. Set SHEET_URL in loadCommunityReports()');
+        return;
+    }
+
+    try {
+        console.log('📡 Loading community reports...');
+        const response = await fetch(SHEET_URL, {
+            cache: 'no-cache' // Always get fresh data
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const csvData = await response.text();
+
+        // Parse CSV data
+        const reports = parseCSV(csvData);
+
+        // Clear existing community markers
+        clearCommunityMarkers();
+
+        // Plot approved reports
+        let plottedCount = 0;
+        reports.forEach(report => {
+            if (isValidReport(report) && isApproved(report)) {
+                plotCommunityMarker(report);
+                plottedCount++;
+            }
+        });
+
+        console.log(`✅ Loaded ${plottedCount} approved community reports`);
+
+    } catch (error) {
+        console.error('❌ Error loading community reports:', error);
+        // Fail silently - don't break the app if community layer is down
+    }
+}
+
+/**
+ * Parse CSV data into report objects
+ * Expected columns: Timestamp, Latitude, Longitude, Severity, Photo URL, Approved
+ */
+function parseCSV(csv) {
+    const lines = csv.trim().split('\n');
+    if (lines.length < 2) return []; // Need header + at least 1 row
+
+    const headers = lines[0].split(',').map(h => h.trim());
+    const reports = [];
+
+    // Parse each row (skip header)
+    for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+
+        // Create report object
+        const report = {};
+        headers.forEach((header, index) => {
+            report[header] = values[index] ? values[index].trim() : '';
+        });
+
+        reports.push(report);
+    }
+
+    return reports;
+}
+
+/**
+ * Parse a single CSV line (handles quoted fields with commas)
+ */
+function parseCSVLine(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            values.push(current);
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    values.push(current); // Last value
+
+    return values;
+}
+
+/**
+ * Validate report has minimum required fields
+ */
+function isValidReport(report) {
+    const lat = parseFloat(report.Latitude || report.latitude || report.Lat);
+    const lng = parseFloat(report.Longitude || report.longitude || report.Lng);
+
+    return !isNaN(lat) && !isNaN(lng) &&
+        lat >= -90 && lat <= 90 &&
+        lng >= -180 && lng <= 180;
+}
+
+/**
+ * Check if report is admin-approved
+ */
+function isApproved(report) {
+    const approvalField = report.Approved || report.approved || report.APPROVED || '';
+    return approvalField.toLowerCase() === 'true' || approvalField === '1' || approvalField === 'yes';
+}
+
+/**
+ * Plot a community report as a purple marker
+ */
+function plotCommunityMarker(report) {
+    const lat = parseFloat(report.Latitude || report.latitude || report.Lat);
+    const lng = parseFloat(report.Longitude || report.longitude || report.Lng);
+    const severity = report.Severity || report.severity || report['Water Level'] || 'Not specified';
+    const timestamp = report.Timestamp || report.timestamp || report.Date || 'Unknown';
+    const photo = report.Photo || report.photo || report['Photo URL'] || '';
+    const location = report.Location || report.location || report.Area || 'Community Report';
+
+    // Create purple circle marker (distinct from red/yellow historical markers)
+    const marker = L.circleMarker([lat, lng], {
+        radius: 8,
+        fillColor: "#a855f7", // Purple - Tailwind purple-500
+        color: "#ffffff",
+        weight: 2,
+        fillOpacity: 0.85,
+        className: 'community-marker'
+    });
+
+    // Create popup content
+    const popupHTML = `
+        <div style="min-width: 200px;">
+            <div style="background: linear-gradient(135deg, #a855f7, #c084fc); padding: 8px; margin: -12px -16px 8px -16px; border-radius: 4px 4px 0 0;">
+                <strong style="color: white; font-size: 0.95rem;">📢 Community Report</strong>
+            </div>
+            
+            <div style="margin-top: 8px;">
+                <strong>${location}</strong>
+            </div>
+            
+            <table style="width: 100%; margin-top: 8px; font-size: 0.85rem;">
+                <tr>
+                    <td style="color: #666; padding: 4px 8px 4px 0;">Status:</td>
+                    <td><strong>${severity}</strong></td>
+                </tr>
+                <tr>
+                    <td style="color: #666; padding: 4px 8px 4px 0;">Reported:</td>
+                    <td>${formatTimestamp(timestamp)}</td>
+                </tr>
+            </table>
+            
+            ${photo ? `
+                <img src="${photo}" style="width: 100%; margin-top: 8px; border-radius: 4px; max-height: 150px; object-fit: cover;" 
+                     alt="Flood evidence photo" loading="lazy">
+            ` : ''}
+            
+            <div style="margin-top: 8px; padding: 8px; background: rgba(168, 85, 247, 0.1); border-radius: 4px; font-size: 0.75rem; color: #666;">
+                <strong>Live User Submission</strong><br>
+                Verified by admin
+            </div>
+        </div>
+    `;
+
+    marker.bindPopup(popupHTML);
+    marker.addTo(map);
+
+    // Track marker for later removal/toggle
+    communityMarkers.push(marker);
+}
+
+/**
+ * Format timestamp for display
+ */
+function formatTimestamp(timestamp) {
+    try {
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) return timestamp; // Invalid date, return as-is
+
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+
+        return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    } catch {
+        return timestamp;
+    }
+}
+
+/**
+ * Clear all community markers from map
+ */
+function clearCommunityMarkers() {
+    communityMarkers.forEach(marker => {
+        map.removeLayer(marker);
+    });
+    communityMarkers = [];
+}
+
+/**
+ * Toggle community layer visibility
+ */
+function toggleCommunityLayer() {
+    communityLayerVisible = !communityLayerVisible;
+
+    communityMarkers.forEach(marker => {
+        if (communityLayerVisible) {
+            marker.addTo(map);
+        } else {
+            map.removeLayer(marker);
+        }
+    });
+
+    // Update toggle button state
+    const toggleBtn = document.getElementById('community-toggle');
+    if (toggleBtn) {
+        toggleBtn.textContent = communityLayerVisible ? '👥 Hide Community' : '👥 Show Community';
+        toggleBtn.style.opacity = communityLayerVisible ? '1' : '0.6';
+    }
+}
+
+/**
+ * Auto-refresh community reports every 5 minutes
+ */
+setInterval(() => {
+    loadCommunityReports();
+}, 300000); // 5 minutes
+
+// ========================================
+// END COMMUNITY LAYER
+// ========================================
+
 
 // Search Location (Simple)
 function searchLocation(e) {
