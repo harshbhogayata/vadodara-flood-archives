@@ -819,16 +819,21 @@ let communityLayerVisible = true;
 async function loadCommunityReports() {
     // Google Sheets CSV URL - Published from Tally integration
     // Updates automatically when new reports are approved
-    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRguoBxzzi0hEXpbk0hu5hivwy131-l8FRQlumD22urDW1AUiikLSAYGyZneFphJRtA0fr4vLW82na4/pub?output=csv';
+    // Google Sheets CSV URL - Published from Tally integration
+    // Updates automatically when new reports are approved
+    const RAW_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRguoBxzzi0hEXpbk0hu5hivwy131-l8FRQlumD22urDW1AUiikLSAYGyZneFphJRtA0fr4vLW82na4/pub?output=csv';
+
+    // Use CORS Proxy to bypass potential 503 rate limits or CORS issues
+    const SHEET_URL = `https://corsproxy.io/?${encodeURIComponent(RAW_SHEET_URL)}`;
 
     // If URL not configured yet, skip
-    if (SHEET_URL === 'YOUR_GOOGLE_SHEET_CSV_URL') {
+    if (RAW_SHEET_URL === 'YOUR_GOOGLE_SHEET_CSV_URL') {
         console.log('📊 Community layer not configured yet. Set SHEET_URL in loadCommunityReports()');
         return;
     }
 
     try {
-        console.log('📡 Loading community reports...');
+        console.log('📡 Loading community reports via Proxy...');
         const response = await fetch(SHEET_URL, {
             cache: 'no-cache' // Always get fresh data
         });
