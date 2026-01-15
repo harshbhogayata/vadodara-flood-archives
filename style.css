@@ -1248,15 +1248,7 @@ input[type="range"]::-moz-range-thumb {
             transition: none !important;
         }
 
-        .fab-locate {
-            position: absolute;
-            top: -65px;
-            /* Float above the sidebar edge */
-            right: 1rem;
-            padding: 0.6rem 1rem;
-            font-size: 0.8rem;
-            z-index: 2001;
-        }
+
 
         .segmented-control label {
             font-size: 0.75rem;
