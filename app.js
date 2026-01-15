@@ -1107,11 +1107,11 @@ function toggleCommunityLayer() {
 }
 
 /**
- * Auto-refresh community reports every 5 minutes
+ * Auto-refresh community reports every 30 minutes (reduced from 5 to prevent rate limiting)
  */
 setInterval(() => {
     loadCommunityReports();
-}, 300000); // 5 minutes
+}, 1800000); // 30 minutes
 
 // ========================================
 // END COMMUNITY LAYER
