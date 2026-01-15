@@ -423,6 +423,19 @@ function initializeMap() {
 
     // Load community reports layer (crowdsourced data)
     loadCommunityReports();
+
+    // FIX: Force map redraw to prevent gray screen on first load
+    // This handles the race condition where CSS may not be fully loaded
+    setTimeout(function () {
+        if (map) map.invalidateSize();
+    }, 200);
+
+    // Extra safety: Redraw again when the window is fully loaded (fixes slow connections)
+    window.addEventListener('load', function () {
+        setTimeout(function () {
+            if (map) map.invalidateSize();
+        }, 500);
+    });
 }
 
 // Add Vishwamitri River Path as Context Layer
