@@ -1234,7 +1234,8 @@ input[type="range"]::-moz-range-thumb {
         /* State 1: Collapsed (Only Search/Handle visible) */
         #sidebar.sheet-collapsed {
             height: 12vh !important;
-            overflow: hidden;
+            overflow: visible !important;
+            /* Allow FAB to float outside */
         }
 
         /* State 2: Full Screen (Reading mode) */
