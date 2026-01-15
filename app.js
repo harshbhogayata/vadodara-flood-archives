@@ -841,20 +841,30 @@ async function loadCommunityReports() {
 
         // Parse CSV data
         const reports = parseCSV(csvData);
+        console.log('📄 Parsed headers:', Object.keys(reports[0] || {}));
+        console.log('📝 First report row (raw):', reports[0]);
 
         // Clear existing community markers
         clearCommunityMarkers();
 
         // Plot approved reports
         let plottedCount = 0;
-        reports.forEach(report => {
-            if (isValidReport(report) && isApproved(report)) {
+        reports.forEach((report, index) => {
+            const valid = isValidReport(report);
+            const approved = isApproved(report);
+
+            if (index === 0) {
+                console.log(`🧐 Row 1 check - Valid: ${valid}, Approved: ${approved}`);
+                console.log(`   Lat: ${report.Lat}, Lng: ${report.Lng}, ApprovedVal: ${report.Approved}`);
+            }
+
+            if (valid && approved) {
                 plotCommunityMarker(report);
                 plottedCount++;
             }
         });
 
-        console.log(`✅ Loaded ${plottedCount} approved community reports`);
+        console.log(`✅ Loaded ${plottedCount} approved community reports from ${reports.length} total rows`);
 
     } catch (error) {
         console.error('❌ Error loading community reports:', error);
@@ -866,20 +876,32 @@ async function loadCommunityReports() {
  * Parse CSV data into report objects
  * Expected columns: Timestamp, Latitude, Longitude, Severity, Photo URL, Approved
  */
+/**
+ * Parse CSV data into report objects (Robust version)
+ * Handles multiline quoted fields and messy headers from Tally/Google Sheets
+ */
 function parseCSV(csv) {
-    const lines = csv.trim().split('\n');
-    if (lines.length < 2) return []; // Need header + at least 1 row
+    const rows = parseCSVToStringArray(csv);
 
-    const headers = lines[0].split(',').map(h => h.trim());
+    if (rows.length < 2) return []; // Need header + at least 1 row
+
+    // Clean headers: remove newlines, quotes, extra spaces
+    const headers = rows[0].map(h => h.replace(/[\r\n"]+/g, ' ').trim());
+
+    console.log('🧹 Cleaned Headers:', headers);
+
     const reports = [];
 
-    // Parse each row (skip header)
-    for (let i = 1; i < lines.length; i++) {
-        const values = parseCSVLine(lines[i]);
+    // Parse data rows
+    for (let i = 1; i < rows.length; i++) {
+        const values = rows[i];
 
-        // Create report object
+        // Skip empty rows
+        if (values.length === 0 || (values.length === 1 && values[0] === '')) continue;
+
         const report = {};
         headers.forEach((header, index) => {
+            // Map value to header, handle missing values
             report[header] = values[index] ? values[index].trim() : '';
         });
 
@@ -890,28 +912,54 @@ function parseCSV(csv) {
 }
 
 /**
- * Parse a single CSV line (handles quoted fields with commas)
+ * Robust CSV Line Parser (State Machine)
+ * Correctly handles quoted fields containing newlines and commas
  */
-function parseCSVLine(line) {
-    const values = [];
-    let current = '';
-    let inQuotes = false;
+function parseCSVToStringArray(text) {
+    const rows = [];
+    let currentRow = [];
+    let currentValue = '';
+    let insideQuotes = false;
 
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i];
+    // Normalize newlines
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
 
         if (char === '"') {
-            inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-            values.push(current);
-            current = '';
+            if (insideQuotes && nextChar === '"') {
+                // Escaped quote ("") -> become single quote
+                currentValue += '"';
+                i++; // Skip next quote
+            } else {
+                // Toggle quote state
+                insideQuotes = !insideQuotes;
+            }
+        } else if (char === ',' && !insideQuotes) {
+            // End of field
+            currentRow.push(currentValue);
+            currentValue = '';
+        } else if (char === '\n' && !insideQuotes) {
+            // End of row
+            currentRow.push(currentValue);
+            rows.push(currentRow);
+            currentRow = [];
+            currentValue = '';
         } else {
-            current += char;
+            // Regular character
+            currentValue += char;
         }
     }
-    values.push(current); // Last value
 
-    return values;
+    // Handle last row if exists
+    if (currentValue || currentRow.length > 0) {
+        currentRow.push(currentValue);
+        rows.push(currentRow);
+    }
+
+    return rows;
 }
 
 /**
