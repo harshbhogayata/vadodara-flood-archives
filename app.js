@@ -31,6 +31,25 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('ajwaLevel').addEventListener('input', updateAjwaValue);
     document.getElementById('localRain').addEventListener('input', updateRainValue);
     document.getElementById('runSimulation').addEventListener('click', runSimulation);
+
+    // Report Modal Controls
+    const reportBtn = document.getElementById('report-btn');
+    const reportModal = document.getElementById('report-modal');
+    const closeReportBtn = reportModal?.querySelector('.close-btn');
+
+    if (reportBtn) reportBtn.addEventListener('click', openReportModal);
+    if (closeReportBtn) closeReportBtn.addEventListener('click', closeReportModal);
+
+    // Close modal on overlay click
+    if (reportModal) {
+        reportModal.addEventListener('click', (e) => {
+            if (e.target.id === 'report-modal') closeReportModal();
+        });
+    }
+
+    // Language Toggle
+    const langToggle = document.getElementById('langToggle');
+    if (langToggle) langToggle.addEventListener('click', toggleLanguage);
 });
 
 // Tab Switching Function
@@ -138,18 +157,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-
-
-// Toggle Sidebar Collapse (Mobile)
-function toggleSidebar(event) {
-    if (event) event.stopPropagation();
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) {
-        sidebar.classList.toggle('collapsed');
-        sidebar.style.height = '';
-
-    }
-}
 
 // Generate Zone Cards for Analysis Tab (All 50 Zones)
 function generateZoneCards() {
@@ -992,18 +999,3 @@ function closeReportModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// Close if clicked outside
-document.addEventListener('DOMContentLoaded', () => {
-    const reportModal = document.getElementById('report-modal');
-    if (reportModal) {
-        reportModal.addEventListener('click', (e) => {
-            if (e.target.id === 'report-modal') {
-                closeReportModal();
-            }
-        });
-    }
-});
-
-// Expose functions to global scope
-window.openReportModal = openReportModal;
-window.closeReportModal = closeReportModal;
