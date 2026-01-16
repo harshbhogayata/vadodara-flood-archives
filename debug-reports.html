@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Reports Debug Tool</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #e0e0e0;
+        }
+
+        h1 {
+            color: #a855f7;
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #a855f7, #c084fc);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
+        }
+
+        pre {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .success {
+            color: #06d6a0;
+        }
+
+        .warning {
+            color: #ffd23f;
+        }
+
+        .error {
+            color: #ff3b3b;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
+        }
+
+        th {
+            background: rgba(168, 85, 247, 0.2);
+        }
+
+        .valid {
+            background: rgba(6, 214, 160, 0.1);
+        }
+
+        .invalid {
+            background: rgba(255, 59, 59, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔍 Community Reports Debug Tool</h1>
+
+    <div class="section">
+        <h2>Step 1: Fetch CSV Data</h2>
+        <p>Your Google Sheet URL:</p>
+        <input type="text" id="sheetUrl"
+            value="https://docs.google.com/spreadsheets/d/e/2PACX-1vRguoBxzzi0hEXpbk0hu5hivwy131-l8FRQlumD22urDW1AUiikLSAYGyZneFphJRtA0fr4vLW82na4/pub?output=csv">
+        <button onclick="fetchData()">Fetch & Analyze</button>
+        <div id="fetchStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>Step 2: CSV Headers</h2>
+        <pre id="headers">Click "Fetch & Analyze" to load data...</pre>
+    </div>
+
+    <div class="section">
+        <h2>Step 3: Reports Analysis</h2>
+        <div id="summary"></div>
+        <div id="reports"></div>
+    </div>
+
+    <script>
+        async function fetchData() {
+            const sheetUrl = document.getElementById('sheetUrl').value;
+            const statusEl = document.getElementById('fetchStatus');
+
+            statusEl.innerHTML = '<p class="warning">⏳ Fetching data...</p>';
+
+            try {
+                // Try direct fetch first
+                let response = await fetch(sheetUrl, { cache: 'no-cache' });
+
+                if (!response.ok) {
+                    // If direct fails, try CORS proxy
+                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(sheetUrl)}`;
+                    statusEl.innerHTML = '<p class="warning">⏳ Direct fetch failed, trying CORS proxy...</p>';
+                    response = await fetch(proxyUrl, { cache: 'no-cache' });
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const csvData = await response.text();
+                statusEl.innerHTML = '<p class="success">✅ Data fetched successfully!</p>';
+
+                analyzeData(csvData);
+
+            } catch (error) {
+                statusEl.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+                console.error(error);
+            }
+        }
+
+        function parseCSV(csv) {
+            const rows = [];
+            let currentRow = [];
+            let currentValue = '';
+            let insideQuotes = false;
+
+            // Normalize newlines
+            csv = csv.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+            for (let i = 0; i < csv.length; i++) {
+                const char = csv[i];
+                const nextChar = csv[i + 1];
+
+                if (char === '"') {
+                    if (insideQuotes && nextChar === '"') {
+                        currentValue += '"';
+                        i++;
+                    } else {
+                        insideQuotes = !insideQuotes;
+                    }
+                } else if (char === ',' && !insideQuotes) {
+                    currentRow.push(currentValue);
+                    currentValue = '';
+                } else if (char === '\n' && !insideQuotes) {
+                    currentRow.push(currentValue);
+                    rows.push(currentRow);
+                    currentRow = [];
+                    currentValue = '';
+                } else {
+                    currentValue += char;
+                }
+            }
+
+            if (currentValue || currentRow.length > 0) {
+                currentRow.push(currentValue);
+                rows.push(currentRow);
+            }
+
+            // Convert to objects
+            if (rows.length < 2) return [];
+
+            const headers = rows[0].map(h => h.replace(/[\r\n"]+/g, ' ').trim().toLowerCase());
+            const reports = [];
+
+            for (let i = 1; i < rows.length; i++) {
+                const values = rows[i];
+                if (values.length === 0 || (values.length === 1 && values[0] === '')) continue;
+
+                const report = {};
+                headers.forEach((header, index) => {
+                    report[header] = values[index] ? values[index].trim() : '';
+                });
+                reports.push(report);
+            }
+
+            return { headers, reports };
+        }
+
+        function isValidReport(report) {
+            const lat = parseFloat(report.latitude || report.lat);
+            const lng = parseFloat(report.longitude || report.lng);
+            return !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+        }
+
+        function isApproved(report) {
+            const approvalField = report.approved || '';
+            return approvalField.toLowerCase() === 'true' || approvalField === '1' || approvalField.toLowerCase() === 'yes';
+        }
+
+        function analyzeData(csvData) {
+            const { headers, reports } = parseCSV(csvData);
+
+            // Display headers
+            document.getElementById('headers').textContent = JSON.stringify(headers, null, 2);
+
+            // Analyze reports
+            let validCount = 0;
+            let approvedCount = 0;
+            let bothCount = 0;
+
+            let tableHTML = '<table><thead><tr><th>#</th><th>Location</th><th>Lat/Lng</th><th>Approved?</th><th>Valid?</th><th>Status</th></tr></thead><tbody>';
+
+            reports.forEach((report, index) => {
+                const valid = isValidReport(report);
+                const approved = isApproved(report);
+
+                if (valid) validCount++;
+                if (approved) approvedCount++;
+                if (valid && approved) bothCount++;
+
+                const lat = report.latitude || report.lat;
+                const lng = report.longitude || report.lng;
+                const location = report['current location'] || 'Unknown';
+                const approvalValue = report.approved || 'Missing';
+
+                const rowClass = valid && approved ? 'valid' : 'invalid';
+                const statusEmoji = valid && approved ? '✅' : valid ? '⏳' : approved ? '⚠️' : '❌';
+                const statusText = valid && approved ? 'Will show on map' : valid ? 'Valid but not approved' : approved ? 'Approved but invalid coords' : 'Not ready';
+
+                tableHTML += `<tr class="${rowClass}">
+                    <td>${index + 1}</td>
+                    <td>${location}</td>
+                    <td>${lat}, ${lng}</td>
+                    <td>${approvalValue}</td>
+                    <td>${valid ? 'Yes' : 'No'}</td>
+                    <td>${statusEmoji} ${statusText}</td>
+                </tr>`;
+            });
+
+            tableHTML += '</tbody></table>';
+
+            const summaryHTML = `
+                <h3>Summary</h3>
+                <ul>
+                    <li><strong>Total Reports:</strong> ${reports.length}</li>
+                    <li><strong>Valid Coordinates:</strong> ${validCount}</li>
+                    <li><strong>Approved:</strong> ${approvedCount}</li>
+                    <li class="success"><strong>✅ Will Show on Map:</strong> ${bothCount}</li>
+                </ul>
+            `;
+
+            document.getElementById('summary').innerHTML = summaryHTML;
+            document.getElementById('reports').innerHTML = tableHTML;
+
+            // Console output for copying
+            console.log('Headers:', headers);
+            console.log('First 3 reports:', reports.slice(0, 3));
+        }
+    </script>
+</body>
+
+</html>

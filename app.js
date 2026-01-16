@@ -24,9 +24,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('tab-1').addEventListener('change', () => switchTab('simulator'));
     document.getElementById('tab-2').addEventListener('change', () => switchTab('analysis'));
 
-    // Map Controls
-    document.getElementById('locateBtn').addEventListener('click', locateUser);
-
     // Simulator Controls
     document.getElementById('ajwaLevel').addEventListener('input', updateAjwaValue);
     document.getElementById('localRain').addEventListener('input', updateRainValue);
@@ -683,127 +680,7 @@ function createPopupContent(zone) {
     `;
 }
 
-// Geolocation - "Am I Safe?" Feature
-function locateUser() {
-    if (!navigator.geolocation) {
-        alert('Geolocation is not supported by your browser');
-        return;
-    }
-
-    const locateBtn = document.getElementById('locateBtn');
-    locateBtn.innerHTML = '<span>📍</span> Locating...';
-    locateBtn.disabled = true;
-
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const userLat = position.coords.latitude;
-            const userLng = position.coords.longitude;
-
-            // Remove previous user marker if exists
-            if (userLocationMarker) {
-                map.removeLayer(userLocationMarker);
-            }
-
-            // Add user location marker
-            userLocationMarker = L.marker([userLat, userLng], {
-                icon: L.divIcon({
-                    className: 'user-marker',
-                    html: `<div style="
-                        background: #4a90e2;
-                        width: 20px;
-                        height: 20px;
-                        border-radius: 50%;
-                        border: 3px solid white;
-                        box-shadow: 0 0 10px #4a90e2;
-                    "></div>`,
-                    iconSize: [20, 20],
-                    iconAnchor: [10, 10]
-                })
-            }).addTo(map);
-
-            // Check if user is in a risk zone
-            const nearbyZone = checkProximityToRiskZones(userLat, userLng);
-
-            if (nearbyZone) {
-                userLocationMarker.bindPopup(`
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; margin-bottom: 8px;">⚠️</div>
-                        <strong style="color: #ff3b3b;">YOU ARE NEAR A RISK ZONE</strong>
-                        <p style="margin: 8px 0; font-size: 0.9rem;">
-                            Closest: <strong>${nearbyZone.name}</strong><br>
-                            Distance: ~${nearbyZone.distance.toFixed(2)} km<br>
-                            Risk: <span style="color: #ff8c42;">${nearbyZone.risk_tier}</span>
-                        </p>
-                        <p style="font-size: 0.8rem; color: #a0a0a0;">
-                            Click on the red marker for details.
-                        </p>
-                    </div>
-                `).openPopup();
-            } else {
-                userLocationMarker.bindPopup(`
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; margin-bottom: 8px;">✅</div>
-                        <strong style="color: #06d6a0;">NO HIGH-RISK ZONES NEARBY</strong>
-                        <p style="margin: 8px 0; font-size: 0.85rem; color: #a0a0a0;">
-                            You are not near any verified flood zones.<br>
-                            Always check official VMC alerts during monsoon.
-                        </p>
-                    </div>
-                `).openPopup();
-            }
-
-            // Center map on user location
-            map.setView([userLat, userLng], 14);
-
-            locateBtn.innerHTML = '<span>📍</span> Am I Safe?';
-            locateBtn.disabled = false;
-        },
-        (error) => {
-            alert('Unable to retrieve your location. Please enable location services.');
-            locateBtn.innerHTML = '<span>📍</span> Am I Safe?';
-            locateBtn.disabled = false;
-        }
-    );
-}
-
-// Check Proximity to Risk Zones (within 2km radius)
-// Check Proximity to Risk Zones (within 2km radius)
-function checkProximityToRiskZones(userLat, userLng) {
-    const PROXIMITY_THRESHOLD = 2; // km
-    let closestZone = null;
-    let minDistance = Infinity;
-
-    floodZones.forEach(zone => {
-        // Use zone.coords
-        const distance = calculateDistance(userLat, userLng, zone.coords[0], zone.coords[1]);
-        if (distance < minDistance && distance < PROXIMITY_THRESHOLD) {
-            // Merge with content for display
-            const ledgerData = evidenceLedger.zones[zone.id];
-
-            minDistance = distance;
-            closestZone = {
-                location_id: zone.id,
-                name: ledgerData ? ledgerData.location : 'Unknown Zone',
-                risk_tier: ledgerData ? ledgerData.risk_level : 'MODERATE',
-                distance: distance
-            };
-        }
-    });
-
-    return closestZone;
-}
-
-// Calculate Distance (Haversine Formula)
-function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
+// Note: "Am I Safe?" geolocation feature has been removed as requested
 
 // ========================================
 // LIVE COMMUNITY LAYER (Crowdsourced Reports)
@@ -817,14 +694,9 @@ let communityLayerVisible = true;
  * Reports are submitted via Tally form → Google Sheets → Published as CSV
  */
 async function loadCommunityReports() {
-    // Google Sheets CSV URL - Published from Tally integration
-    // Updates automatically when new reports are approved
-    // Google Sheets CSV URL - Published from Tally integration
-    // Updates automatically when new reports are approved
-    const RAW_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRguoBxzzi0hEXpbk0hu5hivwy131-l8FRQlumD22urDW1AUiikLSAYGyZneFphJRtA0fr4vLW82na4/pub?output=csv';
-
-    // Use CORS Proxy to bypass potential 503 rate limits or CORS issues
-    const SHEET_URL = `https://corsproxy.io/?${encodeURIComponent(RAW_SHEET_URL)}`;
+    // Google Sheets CSV URL - Export format from the Tally-connected sheet
+    // Sheet ID: 1dbaWwodlJAyFcPc9JI9jBH3thcnfptlCKjPkiuFQImY
+    const RAW_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1dbaWwodlJAyFcPc9JI9jBH3thcnfptlCKjPkiuFQImY/export?format=csv';
 
     // If URL not configured yet, skip
     if (RAW_SHEET_URL === 'YOUR_GOOGLE_SHEET_CSV_URL') {
@@ -832,49 +704,118 @@ async function loadCommunityReports() {
         return;
     }
 
-    try {
-        console.log('📡 Loading community reports via Proxy...');
-        const response = await fetch(SHEET_URL, {
-            cache: 'no-cache' // Always get fresh data
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    // Try multiple approaches to fetch the data
+    const fetchStrategies = [
+        // Strategy 1: Direct fetch (works if CORS is enabled)
+        {
+            name: 'Direct fetch',
+            url: RAW_SHEET_URL
+        },
+        // Strategy 2: AllOrigins proxy (more reliable)
+        {
+            name: 'AllOrigins proxy',
+            url: `https://api.allorigins.win/raw?url=${encodeURIComponent(RAW_SHEET_URL)}`
+        },
+        // Strategy 3: CORS.SH proxy
+        {
+            name: 'CORS.SH proxy',
+            url: `https://proxy.cors.sh/${RAW_SHEET_URL}`,
+            headers: { 'x-cors-api-key': 'temp_demo' }
+        },
+        // Strategy 4: Original corsproxy.io
+        {
+            name: 'CORSProxy.io',
+            url: `https://corsproxy.io/?${encodeURIComponent(RAW_SHEET_URL)}`
         }
+    ];
 
-        const csvData = await response.text();
+    for (const strategy of fetchStrategies) {
+        try {
+            console.log(`📡 Trying: ${strategy.name}...`);
 
-        // Parse CSV data
-        const reports = parseCSV(csvData);
-        console.log('📄 Parsed headers:', Object.keys(reports[0] || {}));
-        console.log('📝 First report row (raw):', reports[0]);
+            const fetchOptions = {
+                cache: 'no-cache',
+                headers: strategy.headers || {}
+            };
 
-        // Clear existing community markers
-        clearCommunityMarkers();
+            const response = await fetch(strategy.url, fetchOptions);
 
-        // Plot approved reports
-        let plottedCount = 0;
-        reports.forEach((report, index) => {
-            const valid = isValidReport(report);
-            const approved = isApproved(report);
-
-            if (index === 0) {
-                console.log(`🧐 Row 1 check - Valid: ${valid}, Approved: ${approved}`);
-                console.log(`   Lat: ${report.Lat}, Lng: ${report.Lng}, ApprovedVal: ${report.Approved}`);
+            if (!response.ok) {
+                console.warn(`⚠️ ${strategy.name} failed: HTTP ${response.status}`);
+                continue; // Try next strategy
             }
 
-            if (valid && approved) {
-                plotCommunityMarker(report);
-                plottedCount++;
+            const csvData = await response.text();
+
+            // Validate we got CSV data
+            if (!csvData || csvData.length < 10) {
+                console.warn(`⚠️ ${strategy.name} returned empty/invalid data`);
+                continue;
             }
-        });
 
-        console.log(`✅ Loaded ${plottedCount} approved community reports from ${reports.length} total rows`);
+            console.log(`✅ Success with ${strategy.name}!`);
 
-    } catch (error) {
-        console.error('❌ Error loading community reports:', error);
-        // Fail silently - don't break the app if community layer is down
+            // Parse CSV data
+            const reports = parseCSV(csvData);
+            console.log('📄 Parsed headers:', Object.keys(reports[0] || {}));
+            console.log('📝 First report row (raw):', reports[0]);
+
+            // Clear existing community markers
+            clearCommunityMarkers();
+
+            // Plot approved reports
+            let plottedCount = 0;
+            let validCount = 0;
+            let approvedCount = 0;
+
+            console.log(`📋 Total rows in CSV: ${reports.length}`);
+
+            reports.forEach((report, index) => {
+                const valid = isValidReport(report);
+                const approved = isApproved(report);
+
+                if (valid) validCount++;
+                if (approved) approvedCount++;
+
+                // Debug first 3 rows in detail
+                if (index < 3) {
+                    console.log(`\n🔍 Row ${index + 1} Debug:`);
+                    console.log(`   Raw report object:`, report);
+                    console.log(`   Latitude: ${report.latitude || report.lat}`);
+                    console.log(`   Longitude: ${report.longitude || report.lng}`);
+                    console.log(`   Approved field: "${report.approved}"`);
+                    console.log(`   Valid: ${valid}, Approved: ${approved}`);
+                }
+
+                if (valid && approved) {
+                    plotCommunityMarker(report);
+                    plottedCount++;
+                    console.log(`✅ Plotted report ${plottedCount}: ${report['current location'] || 'Unknown location'}`);
+                } else if (approved && !valid) {
+                    console.warn(`⚠️ Row ${index + 1}: Approved but INVALID coordinates`);
+                    console.warn(`   Lat: ${report.latitude || report.lat}, Lng: ${report.longitude || report.lng}`);
+                } else if (valid && !approved) {
+                    console.log(`⏳ Row ${index + 1}: Valid but NOT approved`);
+                }
+            });
+
+            console.log(`\n📊 Summary:`);
+            console.log(`   Total rows: ${reports.length}`);
+            console.log(`   Valid coordinates: ${validCount}`);
+            console.log(`   Approved: ${approvedCount}`);
+            console.log(`   Plotted on map: ${plottedCount}`);
+
+            return; // Success! Exit the function
+
+        } catch (error) {
+            console.warn(`❌ ${strategy.name} error:`, error.message);
+            // Continue to next strategy
+        }
     }
+
+    // If we get here, all strategies failed
+    console.error('❌ All fetch strategies failed. Could not load community reports.');
+    console.error('💡 Make sure your Google Sheet is published to web as CSV.');
 }
 
 /**
@@ -996,58 +937,79 @@ function plotCommunityMarker(report) {
     // Keys are now lowercase from the parser
     const lat = parseFloat(report.latitude || report.lat);
     const lng = parseFloat(report.longitude || report.lng);
-    const severity = report.severity || report['water level'] || report['current location'] || 'Not specified';
-    // ^ Note: mapped 'Current Location Water Level' -> 'current location' because header cleaning might merge them differently depending on raw CSV
-    // Actually, looking at CSV: "Submission ID,Respondent ID,Submitted at,Current Location,Water Level,Upload Photo/Video,,Approved,Lat,Lng"
-    // Cleaned: "submission id", "respondent id", "submitted at", "current location", "water level", "upload photo/video", "", "approved", "lat", "lng"
-
-    const timestamp = report.timestamp || report['submitted at'] || report.date || 'Unknown';
-    const photo = report.photo || report['upload photo/video'] || '';
-    const locationName = report.location || report['current location'] || 'Community Report';
+    const severity = report['water level'] || report.severity || 'Not specified';
+    const timestamp = report['submitted at'] || report.timestamp || report.date || 'Unknown';
+    const photo = report['upload photo/video'] || report.photo || '';
+    const locationName = report['current location'] || report.location || 'Community Report';
 
     // Create purple circle marker (distinct from red/yellow historical markers)
     const marker = L.circleMarker([lat, lng], {
         radius: 8,
-        fillColor: "#a855f7", // Purple
+        fillColor: "#a855f7",
         color: "#fff",
         weight: 2,
+        fillOpacity: 0.8
     });
 
-    // Create popup content
+    // Create user-interface friendly glassmorphic popup
     const popupHTML = `
-        <div style="min-width: 200px;">
-            <div style="background: linear-gradient(135deg, #a855f7, #c084fc); padding: 8px; margin: -12px -16px 8px -16px; border-radius: 4px 4px 0 0;">
-                <strong style="color: white; font-size: 0.95rem;">📢 Community Report</strong>
+        <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; color: white;">
+            
+            <!-- Header with Glowing Accent -->
+            <div style="padding: 16px 20px 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative;">
+                <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #a855f7; box-shadow: 0 0 10px #a855f7;"></div>
+                <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.6); margin-bottom: 4px;">Community Report</div>
+                <div style="font-size: 1.1rem; font-weight: 700; background: linear-gradient(90deg, #fff, #e0e0e0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${locationName}</div>
             </div>
-            
-            <div style="margin-top: 8px;">
-                <strong>${location}</strong>
-            </div>
-            
-            <table style="width: 100%; margin-top: 8px; font-size: 0.85rem;">
-                <tr>
-                    <td style="color: #666; padding: 4px 8px 4px 0;">Status:</td>
-                    <td><strong>${severity}</strong></td>
-                </tr>
-                <tr>
-                    <td style="color: #666; padding: 4px 8px 4px 0;">Reported:</td>
-                    <td>${formatTimestamp(timestamp)}</td>
-                </tr>
-            </table>
-            
-            ${photo ? `
-                <img src="${photo}" style="width: 100%; margin-top: 8px; border-radius: 4px; max-height: 150px; object-fit: cover;" 
-                     alt="Flood evidence photo" loading="lazy">
-            ` : ''}
-            
-            <div style="margin-top: 8px; padding: 8px; background: rgba(168, 85, 247, 0.1); border-radius: 4px; font-size: 0.75rem; color: #666;">
-                <strong>Live User Submission</strong><br>
-                Verified by admin
+
+            <!-- Main Content Area -->
+            <div style="padding: 16px 20px;">
+                
+                <!-- Status & Time Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                        <div style="font-size: 0.7rem; color: rgba(255,255,255,0.5); margin-bottom: 2px;">Water Level</div>
+                        <div style="font-size: 0.9rem; font-weight: 600; color: #e2e8f0;">${severity}</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                        <div style="font-size: 0.7rem; color: rgba(255,255,255,0.5); margin-bottom: 2px;">Reported</div>
+                        <div style="font-size: 0.9rem; font-weight: 600; color: #e2e8f0;">${formatTimestamp(timestamp)}</div>
+                    </div>
+                </div>
+
+                <!-- Evidence Photo -->
+                ${photo ? `
+                <div style="position: relative; border-radius: 12px; overflow: hidden; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                    <img src="${photo}" 
+                         style="display: block; width: 100%; height: 160px; object-fit: cover; transition: transform 0.3s;"
+                         alt="Flood evidence"
+                         loading="lazy"
+                         onerror="this.parentElement.style.display='none'">
+                    <div style="position: absolute; bottom: 0; left: 0; width: 100%; padding: 8px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); font-size: 0.7rem; color: rgba(255,255,255,0.8);">
+                        📸 Visual Evidence
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Verified Badge -->
+                <div style="display: flex; align-items: center; gap: 8px; padding: 10px; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px;">
+                    <div style="width: 16px; height: 16px; background: #a855f7; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.75rem; font-weight: 700; color: #d8b4fe;">Verified Submission</div>
+                        <div style="font-size: 0.65rem; color: rgba(255,255,255,0.6);">Approved by Vadodara Risk Intel</div>
+                    </div>
+                </div>
+
             </div>
         </div>
     `;
 
-    marker.bindPopup(popupHTML);
+    marker.bindPopup(popupHTML, {
+        maxWidth: 320,
+        className: 'community-popup'
+    });
     marker.addTo(map);
 
     // Track marker for later removal/toggle

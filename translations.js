@@ -25,10 +25,6 @@ const translations = {
         zonesCount: "verified zones (Jan 2026)",
         zonesShown: "zones shown",
 
-        // FAB Button
-        amISafe: "Am I Safe?",
-        locating: "Locating...",
-
         // Legend
         legendTitle: "Risk Levels",
         critical: "Critical",
@@ -82,10 +78,6 @@ const translations = {
         searchPlaceholder: "🔍 વિસ્તાર શોધો (દા.ત., વડસર)...",
         zonesCount: "ચકાસાયેલ વિસ્તારો (જાન્યુ 2026)",
         zonesShown: "વિસ્તારો દેખાય છે",
-
-        // FAB Button
-        amISafe: "શું હું સુરક્ષિત છું?",
-        locating: "શોધી રહ્યા છીએ...",
 
         // Legend
         legendTitle: "જોખમ સ્તરો",
@@ -149,12 +141,6 @@ function applyTranslations() {
         const key = el.getAttribute('data-i18n-placeholder');
         el.placeholder = t(key);
     });
-
-    // Update specific elements
-    const fabBtn = document.getElementById('locateBtn');
-    if (fabBtn) {
-        fabBtn.innerHTML = `<span class="icon">📍</span> ${t('amISafe')}`;
-    }
 }
 
 // Update language toggle button appearance

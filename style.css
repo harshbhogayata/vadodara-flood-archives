@@ -504,20 +504,20 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ========================================
-   FLOATING ACTION BUTTON - "Am I Safe?"
+   FLOATING ACTION BUTTON - "Report Flood"
    ======================================== */
-.fab-locate {
-    position: absolute;
+#report-btn {
+    position: fixed;
     bottom: 2rem;
     right: 2rem;
-    background: var(--accent-blue);
+    background: linear-gradient(135deg, #a855f7, #c084fc);
     color: white;
     padding: 1rem 1.75rem;
     border-radius: 50px;
     font-weight: 700;
     font-size: 0.95rem;
     border: none;
-    box-shadow: var(--shadow-glow-blue);
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
     z-index: 1000;
     cursor: pointer;
     transition: all 0.2s;
@@ -526,16 +526,16 @@ input[type="range"]::-moz-range-thumb {
     gap: 0.5rem;
 }
 
-.fab-locate:hover {
+#report-btn:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 30px rgba(59, 130, 246, 0.6);
+    box-shadow: 0 8px 30px rgba(168, 85, 247, 0.6);
 }
 
-.fab-locate:active {
+#report-btn:active {
     transform: translateY(-1px);
 }
 
-.fab-locate .icon {
+#report-btn span {
     font-size: 1.1rem;
 }
 
@@ -760,6 +760,55 @@ input[type="range"]::-moz-range-thumb {
 .btn-primary:hover {
     background: #2563eb;
     transform: translateY(-1px);
+}
+
+/* ========================================
+   REPORT MODAL OVERLAY
+   ======================================== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.modal-overlay .modal-content {
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+}
+
+.modal-overlay .glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: var(--shadow-glass);
+}
+
+.modal-overlay .close-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.75rem;
+    cursor: pointer;
+    transition: color 0.2s;
+    line-height: 1;
+    padding: 0;
+    margin-left: auto;
+}
+
+.modal-overlay .close-btn:hover {
+    color: var(--text-primary);
 }
 
 /* ========================================
@@ -1309,6 +1358,51 @@ input[type="range"]::-moz-range-thumb {
             /* Allow FAB to float outside */
         }
 
+        /* ========================================
+   COMMUNITY POPUP STYLES (Glassmorphism)
+   ======================================== */
+        .community-popup .leaflet-popup-content-wrapper {
+            background: rgba(20, 20, 20, 0.6) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px !important;
+            padding: 0 !important;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+            overflow: hidden;
+        }
+
+        .community-popup .leaflet-popup-content {
+            margin: 0 !important;
+            width: auto !important;
+        }
+
+        .community-popup .leaflet-popup-tip {
+            background: rgba(20, 20, 20, 0.6) !important;
+            box-shadow: none !important;
+        }
+
+        .community-popup a.leaflet-popup-close-button {
+            color: #fff !important;
+            top: 8px !important;
+            right: 8px !important;
+            font-size: 18px !important;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 50%;
+            width: 24px !important;
+            height: 24px !important;
+            display: flex;
+            /* Center the X */
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .community-popup a.leaflet-popup-close-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ef4444 !important;
+        }
+
         /* State 2: Full Screen (Reading mode) */
         #sidebar.sheet-expanded {
             height: 90vh !important;
@@ -1346,7 +1440,7 @@ input[type="range"]::-moz-range-thumb {
 
     #report-btn {
         bottom: 14vh !important;
-        /* Align with "Am I Safe" */
+        /* Positioned above bottom sheet */
         left: 1rem;
         padding: 0.8rem 1.2rem;
         /* Slightly smaller */
