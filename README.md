@@ -72,4 +72,13 @@ Run `./gradlew installDebug` to install on your connected phone.
 
 If you have verified photos or data for a specific area in Vadodara, please open a PR or Issue. Accuracy is our top priority.
 
-*Powered by Vadodara Files Initiative.*
+
+## ⚠️ Legal Disclaimer
+
+**Strictly for informational and research purposes only.**
+
+- This application is **NOT** affiliated with the Vadodara Municipal Corporation (VMC), Government of Gujarat, or any official disaster management authority.
+- The data presented is based on historical archives (news, satellite imagery) and volunteer reports. It may contain inaccuracies.
+- **NO LIABILITY**: The creators and contributors accept **no liability** for any loss, damage, injury, or decision made based on this information.
+- Do NOT use this tool for navigation during active floods or for real estate valuation. Always follow official government directives.
+
