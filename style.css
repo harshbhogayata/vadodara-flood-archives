@@ -6,15 +6,20 @@
 
 :root {
     /* Glass Design System */
-    --glass-bg: rgba(20, 20, 20, 0.85);
+    --glass-bg: rgba(30, 30, 30, 0.85);
     --glass-bg-light: rgba(40, 40, 40, 0.6);
     --glass-border: rgba(255, 255, 255, 0.1);
     --glass-border-light: rgba(255, 255, 255, 0.05);
 
-    /* Modern Color Palette */
+    /* Modern Color Palette - ARCHIVE MODE (Default) */
     --bg-primary: #0a0a0a;
+
+    /* Dynamic Theme Colors */
     --accent-blue: #3b82f6;
-    --accent-purple: #8b5cf6;
+    /* Primary Action Color */
+    --accent-secondary: #8b5cf6;
+    /* Secondary/Simulator Color */
+
     --accent-danger: #ef4444;
     --accent-success: #10b981;
 
@@ -33,6 +38,15 @@
     --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.5);
     --shadow-glow-blue: 0 4px 20px rgba(59, 130, 246, 0.4);
     --shadow-glow-purple: 0 4px 20px rgba(139, 92, 246, 0.4);
+}
+
+/* RELIEF MODE OVERRIDES */
+body.mode-relief {
+    --accent-blue: #ef4444;
+    /* Main Action becomes Red */
+    --shadow-glow-blue: 0 4px 20px rgba(239, 68, 68, 0.4);
+    --accent-secondary: #f59e0b;
+    /* Secondary becomes Amber/Warning */
 }
 
 /* Global Resets */
@@ -158,16 +172,33 @@ body {
     gap: 1.5rem;
 }
 
+/* Desktop Sidebar Layout Fixes */
+#drag-handle-area {
+    display: none;
+}
+
+.sidebar-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+    min-height: 0;
+}
+
 /* Hide scrollbar but allow scroll */
-.glass-sidebar::-webkit-scrollbar {
+.glass-sidebar::-webkit-scrollbar,
+.sidebar-content::-webkit-scrollbar {
     width: 4px;
 }
 
-.glass-sidebar::-webkit-scrollbar-track {
+.glass-sidebar::-webkit-scrollbar-track,
+.sidebar-content::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.glass-sidebar::-webkit-scrollbar-thumb {
+.glass-sidebar::-webkit-scrollbar-thumb,
+.sidebar-content::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.2);
     border-radius: 2px;
 }
@@ -581,7 +612,7 @@ input[type="range"]::-moz-range-thumb {
 .map-legend {
     position: absolute;
     bottom: 2rem;
-    left: 380px;
+    left: 400px;
     margin-left: 1rem;
     background: var(--glass-bg);
     backdrop-filter: blur(12px);
@@ -678,16 +709,19 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .modal-content {
-    background: var(--glass-bg);
+    background: var(--glass-bg, rgba(30, 30, 30, 0.95));
+    /* Fallback */
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
     border-radius: 20px;
     max-width: 560px;
     width: 90%;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: var(--shadow-glass);
+    box-shadow: var(--shadow-glass, 0 8px 32px rgba(0, 0, 0, 0.5));
+    padding: 0;
+    /* Explicit */
 }
 
 .modal-header {
@@ -1375,4 +1409,448 @@ input[type="range"]::-moz-range-thumb {
         background: #ef4444;
         border-color: #ef4444;
     }
+}
+
+/* MODE TOGGLE PILL */
+.mode-toggle-pill {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    /* Squarish */
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-right: 8px;
+}
+
+.mode-toggle-pill:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.mode-toggle-pill .mode-icon {
+    font-size: 1rem;
+}
+
+.mode-toggle-pill .mode-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+/* Relief Mode Styles for Toggle */
+body.mode-relief .mode-toggle-pill {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+body.mode-relief .mode-toggle-pill .mode-label {
+    color: #fca5a5;
+}
+
+/* Update Primary Buttons to use dynamic accent variable */
+.btn-primary {
+    background: var(--accent-blue);
+}
+
+.btn-primary:hover {
+    /* Simple darken filter for hover state since we use variables */
+    filter: brightness(1.1);
+    background: var(--accent-blue);
+}
+
+.user-marker div {
+    /* Update user marker checking to use variable (inline styles in JS need care, but CSS class override is better) */
+    /* This handles the pulse shadow */
+    box-shadow: 0 0 10px var(--accent-blue) !important;
+    background: var(--accent-blue) !important;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #555;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked+.slider {
+    background-color: var(--accent-success);
+}
+
+input:checked+.slider:before {
+    transform: translateX(16px);
+}
+
+/* --- RELIEF MODE STYLES --- */
+
+/* The Pulsing Badge */
+.status-badge {
+    background: rgba(239, 68, 68, 0.2);
+    /* Red glass */
+    color: #ff8888;
+    border: 1px solid #ef4444;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    display: inline-block;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+}
+
+.pulse {
+    animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+/* The SOS Card in the Feed */
+.sos-card {
+    background: rgba(30, 30, 30, 0.6);
+    border-left: 4px solid #ef4444;
+    /* Red indicator */
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    backdrop-filter: blur(5px);
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+
+.sos-card:active {
+    transform: scale(0.98);
+}
+
+.sos-card h3 {
+    margin: 0 0 5px 0;
+    color: white;
+    font-size: 1rem;
+}
+
+.sos-card p {
+    margin: 0 0 5px 0;
+    color: #aaa;
+    font-size: 0.8rem;
+}
+
+.sos-card button {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+/* Action Grid */
+.action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.btn-sos-large {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+.btn-vol-large {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.relief-container {
+    padding: 0 4px;
+}
+
+.section-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #888;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 5px;
+}
+
+.scroll-feed {
+    max-height: 50vh;
+    overflow-y: auto;
+    padding-bottom: 20px;
+}
+
+/* Shelter Widget */
+.shelter-widget {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+
+.shelter-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 5px;
+}
+
+.shelter-status.open {
+    color: #10b981;
+}
+
+.shelter-status.full {
+    color: #ef4444;
+}
+
+/* Speed Dial Footer */
+.speed-dial-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-top: auto;
+}
+
+
+/* Filter Row - Single Line Scroll */
+.filter-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    white-space: nowrap;
+    margin-bottom: 15px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.filter-row::-webkit-scrollbar {
+    display: none;
+    /* Chrome/Safari - Cleaner look */
+}
+
+.speed-btn {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.speed-btn span {
+    font-size: 1.2rem;
+    margin-bottom: 2px;
+}
+
+/* New Premium UI Elements */
+.action-row-v2 {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.btn-glass-accent {
+    background: rgba(16, 185, 129, 0.1) !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+    color: #a7f3d0 !important;
+}
+
+.btn-glass-accent:hover {
+    background: rgba(16, 185, 129, 0.2) !important;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+}
+
+.btn-glass-danger {
+    background: rgba(239, 68, 68, 0.1) !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    color: #fca5a5 !important;
+}
+
+.btn-glass-danger:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+}
+
+/* Legend Collapsible styles */
+.legend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0;
+    transition: opacity 0.2s;
+}
+
+.legend-header:hover {
+    opacity: 0.8;
+}
+
+.legend-header h4 {
+    margin: 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #888;
+}
+
+.map-legend.collapsed #legendContent {
+    display: none;
+}
+
+.map-legend.collapsed .legend-header {
+    padding-bottom: 0;
+}
+
+.map-legend.collapsed {
+    padding-bottom: 0.5rem;
+}
+
+.map-legend.collapsed #legendChevron {
+    transform: rotate(-90deg);
+}
+
+/* Chip / Tag Button Styles (Squarish) */
+.chip {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    color: var(--text-secondary);
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.chip:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.chip.active {
+    background: var(--bg-primary);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Specific Active Colors */
+.chip[data-filter="ALL"].active {
+    background: #6b7280;
+    border-color: #6b7280;
+}
+
+.chip[data-filter="RESCUE"].active {
+    background: #ef4444;
+    border-color: #ef4444;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.chip[data-filter="MEDS"].active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Header Spacing */
+.sidebar-header {
+    padding-top: 10px;
+    padding-bottom: 20px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-header h1 {
+    line-height: 1.2;
+    margin-bottom: 4px;
+}
+
+.sidebar-header p {
+    margin-bottom: 0;
+    opacity: 0.8;
 }

@@ -152,12 +152,10 @@ function updateLangToggleUI() {
     }
 }
 
-// Initialize language from localStorage or default
+// Initialize language - FORCE ENGLISH (Project Requirement)
 function initLanguage() {
-    const savedLang = localStorage.getItem('floodArchiveLang');
-    if (savedLang && translations[savedLang]) {
-        currentLang = savedLang;
-    }
+    currentLang = 'en';
+    localStorage.removeItem('floodArchiveLang');
     applyTranslations();
     updateLangToggleUI();
 }

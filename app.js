@@ -5,6 +5,8 @@
 let map;
 let markers = [];
 let userLocationMarker = null;
+let currentMode = 'ARCHIVE'; // 'ARCHIVE' | 'RELIEF'
+let sheltersVisible = false;
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', function () {
@@ -19,6 +21,24 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         showDisclaimerModal();
     });
+
+    // NEW: Mode Toggle Listener
+    const modeToggle = document.getElementById('modeToggle');
+    if (modeToggle) {
+        modeToggle.addEventListener('click', toggleMode);
+    }
+
+    // Community Layer Toggle
+    const commToggle = document.getElementById('community-toggle');
+    if (commToggle) {
+        commToggle.addEventListener('click', toggleCommunityLayer);
+    }
+
+    // Updated Language Toggle logic (if needed) -> Removed
+    // const langToggle = document.getElementById('langToggle');
+    // if (langToggle) {
+    //    langToggle.addEventListener('click', toggleLanguage);
+    // }
 
     // Tab Switching (Segmented Control)
     document.getElementById('tab-1').addEventListener('change', () => switchTab('simulator'));
@@ -36,7 +56,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const menuReportBtn = document.getElementById('menu-report-btn');
     if (menuReportBtn) menuReportBtn.addEventListener('click', openReportModal);
 
-    // Close modal on overlay click
     // Close modal on overlay click
     const reportModal = document.getElementById('report-modal');
     if (reportModal) {
@@ -260,6 +279,12 @@ function generateZoneCards() {
 
     // Clear existing
     container.innerHTML = '';
+
+    // BRANCH: If RELIEF MODE, show SOS Cards instead
+    if (typeof currentMode !== 'undefined' && currentMode === 'RELIEF') {
+        generateSOSCards(container, countEl);
+        return;
+    }
 
     // Calculate risk for all zones and sort by score (highest first)
     const zonesWithRisk = [];
@@ -1393,10 +1418,29 @@ console.log('%cVadodara Flood Archives', 'font-size: 20px; font-weight: bold; co
 console.log('%cZero Hallucination Policy | All data verified from ISRO/VMC sources', 'font-size: 12px; color: #a0a0a0;');
 console.log('%cBuilt for civic awareness | Open Source Initiative', 'font-size: 12px; color: #06d6a0;');
 
-// REPORT MODAL LOGIC (Live Reporting)
+// REPORT MODAL LOGIC (Live Reporting) - Mode Aware
 function openReportModal() {
     const modal = document.getElementById('report-modal');
-    if (modal) modal.style.display = 'flex';
+    if (!modal) return;
+
+    const iframeContainer = document.getElementById('report-iframe-container');
+    const sosContainer = document.getElementById('sos-form-container');
+    const modalTitle = document.querySelector('#report-modal h3');
+
+    // Logic specific to mode
+    if (typeof currentMode !== 'undefined' && currentMode === 'RELIEF') {
+        // Show SOS Form
+        if (iframeContainer) iframeContainer.style.display = 'none';
+        if (sosContainer) sosContainer.style.display = 'block';
+        if (modalTitle) modalTitle.textContent = '🚨 Request Urgent Help';
+    } else {
+        // Show Standard Report Form
+        if (iframeContainer) iframeContainer.style.display = 'block';
+        if (sosContainer) sosContainer.style.display = 'none';
+        if (modalTitle) modalTitle.textContent = '📢 Submit Live Report';
+    }
+
+    modal.style.display = 'flex';
 }
 
 function closeReportModal() {
@@ -1404,3 +1448,804 @@ function closeReportModal() {
     if (modal) modal.style.display = 'none';
 }
 
+// ========================================
+// MODE SWITCHING LOGIC (Archive vs Relief)
+// ========================================
+
+// ========================================
+// STATE MACHINE: SIDEBAR & MODE MANAGER
+// ========================================
+
+// Global State for Modes
+let reliefUnsubscribe = null; // Store the listener to kill it later
+let currentReliefMockData = []; // Store raw data for filtering
+
+function toggleMode(targetMode) {
+    // Check if targetMode is an event object or undefined/null
+    if (!targetMode || typeof targetMode !== 'string') {
+        // Toggle if no specific string argument provided
+        targetMode = currentMode === 'ARCHIVE' ? 'RELIEF' : 'ARCHIVE';
+    }
+
+    const sidebar = document.getElementById('sidebar-container');
+    if (!sidebar) return;
+
+    // A. CLEANUP (Stop previous mode processes)
+    if (currentMode === 'RELIEF' && reliefUnsubscribe) {
+        // reliefUnsubscribe(); // Real Firebase would need this
+        reliefUnsubscribe = null;
+    }
+
+    // B. SWAP HTML & RE-HYDRATE
+    if (targetMode === 'ARCHIVE') {
+        // 1. Inject HTML
+        sidebar.innerHTML = getArchiveSidebarHTML();
+        // 2. Re-attach Sliders/Charts logic
+        initArchiveListeners();
+        setAppTheme('BLUE');
+    }
+    else if (targetMode === 'RELIEF') {
+        // 1. Inject HTML
+        sidebar.innerHTML = getReliefSidebarHTML();
+        // 2. Re-attach SOS Button logic
+        initReliefListeners();
+        setAppTheme('RED');
+    }
+
+    currentMode = targetMode;
+    console.log(`State Machine: Switched to ${targetMode}`);
+
+    // Update Global UI (Header/Map)
+    updateGlobalUI(targetMode);
+
+    // Refresh Map Data
+    refreshMapData();
+}
+
+function updateGlobalUI(mode) {
+    const body = document.body;
+    const pillIcon = document.querySelector('.mode-toggle-pill .mode-icon');
+    const pillLabel = document.querySelector('.mode-toggle-pill .mode-label');
+    const appTitle = document.getElementById('app-title-text');
+    const appSubtitle = document.getElementById('app-subtitle-text');
+    const reportBtn = document.getElementById('menu-report-btn');
+
+    if (mode === 'RELIEF') {
+        body.classList.add('mode-relief');
+        if (pillIcon) pillIcon.textContent = '🚨';
+        if (pillLabel) pillLabel.textContent = 'RELIEF';
+        // Note: Title/Subtitle are now inside the specific HTML templates, 
+        // but updating here ensures global variables (if any) are synced or invalid refs ignored
+        if (reportBtn) reportBtn.innerHTML = '<span>🆘</span> SOS';
+    } else {
+        body.classList.remove('mode-relief');
+        if (pillIcon) pillIcon.textContent = '🏛️';
+        if (pillLabel) pillLabel.textContent = 'ARCHIVE';
+        if (reportBtn) reportBtn.innerHTML = '<span>📢</span> Report';
+    }
+}
+
+function setAppTheme(color) {
+    // Helper for future more complex theming
+    // Currently handled by body.classList in updateGlobalUI
+}
+
+// --- 2. HTML TEMPLATES (The View) ---
+
+function getArchiveSidebarHTML() {
+    // Returns the original Simulator/Analysis HTML
+    return `
+        <div class="sidebar-header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 data-i18n="appTitle" id="app-title-text">Vadodara Files</h1>
+                    <p data-i18n="appSubtitle" id="app-subtitle-text">The Flood Archive</p>
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <!-- Lang Toggle Removed -->
+                    <div class="mode-toggle-pill" id="modeToggle">
+                        <span class="mode-icon">🏛️</span>
+                        <span class="mode-label">ARCHIVE</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-row" style="display: flex; gap: 10px; margin-bottom: 1rem;">
+            <button id="safety-btn" class="btn-action btn-safe">
+                <span>📍</span> Am I Safe?
+            </button>
+            <button id="menu-report-btn" class="btn-action btn-report">
+                <span>📢</span> Report
+            </button>
+        </div>
+
+        <div class="segmented-control">
+            <input type="radio" name="tab" id="tab-1" checked>
+            <label for="tab-1" data-i18n="tabSimulator">⚡ Simulator</label>
+
+            <input type="radio" name="tab" id="tab-2">
+            <label for="tab-2" data-i18n="tabAnalysis">📊 Analysis</label>
+
+            <div class="glider"></div>
+        </div>
+
+        <div id="panel-simulator" class="tab-content active">
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span>Ajwa Dam Level</span>
+                    <span class="slider-value" id="ajwaValue">212.0 ft</span>
+                </div>
+                <input type="range" id="ajwaLevel" min="210" max="215" step="0.5" value="212">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span>Rainfall (24hr)</span>
+                    <span class="slider-value" id="rainValue">0 in</span>
+                </div>
+                <input type="range" id="localRain" min="0" max="10" step="0.5" value="0">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label"><span>Dhadhar River</span></div>
+                <select id="dhadharStatus" class="status-select">
+                    <option value="NORMAL">Normal Flow</option>
+                    <option value="HIGH">High (Backflow Risk)</option>
+                </select>
+            </div>
+
+            <button id="runSimulation" class="btn-simulate">
+                ⚡ Run Forecast
+            </button>
+
+            <div id="predictionResults" class="prediction-results hidden">
+                <h3>Results</h3>
+                <div id="resultsList"></div>
+            </div>
+        </div>
+
+        <div id="panel-analysis" class="tab-content">
+            <div class="zone-search-container">
+                <input type="text" id="zoneSearch" class="zone-search-input"
+                    placeholder="🔍 Search zones (e.g., Vadsar)..." oninput="filterZones()">
+            </div>
+            <div id="zonesContainer" class="zones-container"></div>
+            <div id="zoneCount" class="zone-count"></div>
+        </div>
+
+        <div class="sidebar-footer">
+            <a href="#" id="disclaimerLink">Disclaimer</a> · <a href="#" id="aboutBtn">About</a>
+        </div>
+    `;
+}
+
+function getReliefSidebarHTML() {
+    return `
+        <div class="sidebar-header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 id="app-title-text">SewaSetu</h1>
+                    <p id="app-subtitle-text">Powered by Vadodara Files</p>
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 8px;">
+                     <!-- Lang Toggle Removed -->
+                     <div class="mode-toggle-pill" id="modeToggle">
+                        <span class="mode-icon">🚨</span>
+                        <span class="mode-label">RELIEF</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="relief-container">
+            <!-- Live Ops Badge Removed -->
+            
+            <div class="zone-search-container" style="margin-bottom: 12px;">
+                <input type="text" id="reliefSearch" class="zone-search-input" 
+                    placeholder="Search requests..." oninput="filterReliefSearch()">
+            </div>
+
+            <!-- Filter Chips -->
+            <div class="filter-row">
+                <div class="chip active" data-filter="ALL">All</div>
+                <div class="chip" data-filter="RESCUE">🚨 Rescue</div>
+                <div class="chip" data-filter="MEDS">💊 Medical</div>
+                <div class="chip" data-filter="FOOD">🍲 Food</div>
+            </div>
+
+            <!-- Action Buttons (Swap) -->
+            <!-- Action Buttons (Swap) -->
+            <div class="action-row-v2">
+                <button id="btn-shelters" class="btn-action btn-glass-accent">
+                    <span>🏠</span> Find Shelters
+                </button>
+                <button id="btn-contacts" class="btn-action btn-glass-danger">
+                    <span>📞</span> Emergency No.
+                </button>
+            </div>
+
+            <div class="section-title">Live Needs</div>
+            <div id="live-feed-list" class="scroll-feed">
+                <div class="loading-spinner" style="color: #666; font-size: 0.8rem; text-align: center; padding: 20px;">
+                    Connecting to SewaSetu Network...
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// --- 3. LISTENER MANAGERS (The Controllers) ---
+
+function initArchiveListeners() {
+    // 1. Re-attach Global Toggles (Header)
+    document.getElementById('modeToggle').addEventListener('click', () => toggleMode('RELIEF'));
+    // document.getElementById('langToggle').addEventListener('click', toggleLanguage); // Removed
+
+    // 2. Re-attach Menu Buttons
+    document.getElementById('safety-btn').addEventListener('click', checkUserSafety);
+    document.getElementById('menu-report-btn').addEventListener('click', openReportModal);
+
+    // 3. Re-attach Tabs
+    document.getElementById('tab-1').addEventListener('change', () => switchTab('simulator'));
+    document.getElementById('tab-2').addEventListener('change', () => switchTab('analysis')); // This will trigger generateZoneCards
+
+    // 4. Re-attach Simulator Controls
+    document.getElementById('ajwaLevel').addEventListener('input', updateAjwaValue);
+    document.getElementById('localRain').addEventListener('input', updateRainValue);
+    document.getElementById('runSimulation').addEventListener('click', runSimulation);
+
+    // 5. Re-attach Footer Links
+    document.getElementById('disclaimerLink').addEventListener('click', (e) => {
+        e.preventDefault();
+        showDisclaimerModal();
+    });
+    document.getElementById('aboutBtn').addEventListener('click', showAboutModal);
+
+    // 6. Force Tab Init (if needed)
+    // switchTab('simulator'); 
+}
+
+function initReliefListeners() {
+    // 1. Re-attach Global Toggles
+    document.getElementById('modeToggle').addEventListener('click', () => toggleMode('ARCHIVE'));
+    // document.getElementById('langToggle').addEventListener('click', toggleLanguage); // Removed
+
+    // 2. Filter Chips Logic
+    document.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+            // Remove active from all
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            // Add to clicked
+            e.target.classList.add('active');
+            // Filter
+            filterFeed(e.target.dataset.filter);
+        });
+    });
+
+    // 3. Action Buttons
+    document.getElementById('btn-shelters').addEventListener('click', () => {
+        showSheltersToggle();
+    });
+
+    document.getElementById('btn-contacts').addEventListener('click', () => {
+        alert("🚨 EMERGENCY CONTACTS:\n\n🚒 Fire: 101\n🚑 Ambulance: 108\n👮 Police: 100\n🌊 NDRF Control: 0265-2424888");
+    });
+
+    // 4. Start Live Feed
+    reliefUnsubscribe = subscribeToLiveRequests();
+}
+
+function subscribeToLiveRequests() {
+    const feedContainer = document.getElementById('live-feed-list');
+
+    // MOCK DATA SIMULATION (Replacing real Firestore for now)
+    setTimeout(() => {
+        // Mock Data with Categories
+        currentReliefMockData = [
+            { id: "1", type: "FOOD", title: "Food needed for 5 people", dist: "0.8km", time: "2m ago", lat: 22.315, lng: 73.208 },
+            { id: "2", type: "MEDS", title: "Insulin Urgent", dist: "1.2km", time: "5m ago", lat: 22.288, lng: 73.175 },
+            { id: "3", type: "RESCUE", title: "Stuck on 1st Floor", dist: "2.1km", time: "12m ago", lat: 22.305, lng: 73.181 },
+            { id: "4", type: "FOOD", title: "Water packets required", dist: "0.5km", time: "15m ago", lat: 22.290, lng: 73.190 },
+            { id: "5", type: "RESCUE", title: "Boat needed for senior citizens", dist: "1.8km", time: "20m ago", lat: 22.310, lng: 73.195 }
+        ];
+
+        // Initial Render
+        renderFeed(currentReliefMockData);
+
+    }, 600);
+
+    return function () {
+        console.log("Unsubscribed from Relief Feed");
+    };
+}
+
+function filterFeed(category) {
+    if (category === 'ALL') {
+        renderFeed(currentReliefMockData);
+    } else {
+        const filtered = currentReliefMockData.filter(item => item.type === category);
+        renderFeed(filtered);
+    }
+}
+
+function renderFeed(data) {
+    const feedContainer = document.getElementById('live-feed-list');
+    if (!feedContainer) return;
+
+    feedContainer.innerHTML = ''; // Clear
+
+    if (data.length === 0) {
+        feedContainer.innerHTML = '<div style="text-align:center; color:#666; font-size:0.8rem; padding:20px;">No requests found in this category.</div>';
+        return;
+    }
+
+    data.forEach(item => {
+        feedContainer.innerHTML += createSOSCard(item);
+    });
+}
+
+function createSOSCard(data) {
+    let borderClass = '#ef4444';
+    if (data.type === 'FOOD') borderClass = '#f59e0b'; // Orange
+    if (data.type === 'MEDS') borderClass = '#3b82f6'; // Blue
+
+    // Map Type to Icon
+    let icon = '🆘';
+    if (data.type === 'FOOD') icon = '🍲';
+    if (data.type === 'MEDS') icon = '💊';
+    if (data.type === 'RESCUE') icon = '🚨';
+
+    return `
+        <div class="sos-card" style="border-left-color: ${borderClass}" onclick="map.flyTo([${data.lat}, ${data.lng}], 16)">
+            <div style="display:flex; justify-content:space-between;">
+                <h3>${icon} ${data.type}</h3>
+                <span style="color:#666; font-size:0.7rem">${data.time}</span>
+            </div>
+            <p>${data.title}</p>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                <span style="font-size:0.75rem; color:#888;">📍 ${data.dist} away</span>
+                <button>Locate</button>
+            </div>
+        </div>
+    `;
+}
+
+function filterReliefSearch() {
+    const term = document.getElementById('reliefSearch').value.toLowerCase();
+    const filtered = currentReliefMockData.filter(item =>
+        item.title.toLowerCase().includes(term) ||
+        item.type.toLowerCase().includes(term)
+    );
+    renderFeed(filtered);
+}
+
+// ----------------------------------------------------
+// HELPER: DATA REFRESH (Existing logic wrapped)
+// ----------------------------------------------------
+function refreshMapData() {
+    if (!map) return;
+
+    // Clear existing
+    markers.forEach(m => map.removeLayer(m.marker));
+    markers = [];
+    if (userLocationMarker) {
+        map.removeLayer(userLocationMarker);
+        userLocationMarker = null;
+    }
+
+    if (currentMode === 'ARCHIVE') {
+        addFloodZoneMarkers();
+    } else {
+        addSOSMarkers();
+    }
+}
+
+function addSOSMarkers() {
+    // Re-use logic synced with mockData for consistency
+    const requests = currentReliefMockData.length > 0 ? currentReliefMockData : [
+        { id: "1", type: "FOOD", title: "Food needed for 5 people", dist: "0.8km", time: "2m ago", lat: 22.315, lng: 73.208 },
+        { id: "2", type: "MEDS", title: "Insulin Urgent", dist: "1.2km", time: "5m ago", lat: 22.288, lng: 73.175 }
+    ];
+
+    requests.forEach(req => {
+        let color = '#ef4444';
+        let iconChar = '🆘';
+        if (req.type === 'FOOD') { color = '#f59e0b'; iconChar = '🍲'; }
+        if (req.type === 'MEDS') { color = '#3b82f6'; iconChar = '💊'; }
+        if (req.type === 'RESCUE') { color = '#ef4444'; iconChar = '🚨'; }
+
+        const customIcon = L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="
+                background: ${color};
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                border: 3px solid white;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                font-size: 16px;
+                z-index: 1000;
+            ">${iconChar}</div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+        const marker = L.marker([req.lat, req.lng], { icon: customIcon }).addTo(map);
+
+        const popupContent = `
+            <div style="text-align: center; font-family: 'Inter', sans-serif;">
+                <div style="background: ${color}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; display: inline-block; margin-bottom: 6px;">
+                    ${req.type} REQUEST
+                </div>
+                <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 4px;">${req.title}</div>
+            </div>
+        `;
+        marker.bindPopup(popupContent);
+        markers.push({ marker, data: req });
+    });
+}
+
+function setMode(mode) {
+    currentMode = mode;
+    console.log(`Switched to mode: ${mode}`);
+
+    // 1. Update UI Theme
+    const body = document.body;
+    const pillIcon = document.querySelector('.mode-toggle-pill .mode-icon');
+    const pillLabel = document.querySelector('.mode-toggle-pill .mode-label');
+    const appTitle = document.getElementById('app-title-text');
+    const appSubtitle = document.getElementById('app-subtitle-text');
+
+    // Button Labels
+    const reportBtn = document.getElementById('menu-report-btn');
+    const volToggle = document.getElementById('volunteer-toggle-container'); // NEW
+
+    if (mode === 'RELIEF') {
+        body.classList.add('mode-relief');
+
+        // Show Volunteer Toggle
+        if (volToggle) volToggle.style.display = 'block';
+
+        if (pillIcon) pillIcon.textContent = '🚨';
+        if (pillLabel) pillLabel.textContent = 'RELIEF';
+
+        // Update Header Text for SewaSetu context
+        if (appTitle) appTitle.textContent = 'SewaSetu';
+        if (appSubtitle) appSubtitle.textContent = 'Live Relief Operations';
+
+        // Update Report Button
+        if (reportBtn) reportBtn.innerHTML = '<span>🆘</span> SOS';
+
+    } else {
+        body.classList.remove('mode-relief');
+
+        // Hide Volunteer Toggle
+        if (volToggle) volToggle.style.display = 'none';
+
+        if (pillIcon) pillIcon.textContent = '🏛️';
+        if (pillLabel) pillLabel.textContent = 'ARCHIVE';
+
+        // Restore Default Text
+        if (appTitle) appTitle.textContent = 'Flood Archives';
+        if (appSubtitle) appSubtitle.textContent = 'Vadodara Risk Intelligence';
+
+        // Restore Report Button
+        if (reportBtn) reportBtn.innerHTML = '<span>📢</span> Report';
+    }
+
+    // 2. Refresh Map Markers
+    refreshMapData();
+}
+
+function refreshMapData() {
+    if (!map) return;
+
+    // Clear existing markers
+    markers.forEach(m => map.removeLayer(m.marker));
+    markers = [];
+
+    // Clear user location marker
+    if (userLocationMarker) {
+        map.removeLayer(userLocationMarker);
+        userLocationMarker = null;
+    }
+
+    if (currentMode === 'ARCHIVE') {
+        // Load Flood Zone Markers (Existing Logic)
+        addFloodZoneMarkers();
+    } else {
+        // Load SOS Request Markers (New Logic)
+        addSOSMarkers();
+    }
+}
+
+function addSOSMarkers() {
+    // If no SOS data yet
+    if (typeof sosRequests === 'undefined' || !sosRequests) return;
+
+    sosRequests.forEach(req => {
+        // Determine Color based on Type
+        let color = '#ef4444'; // Default Red (SOS)
+        let iconChar = '🆘';
+
+        if (req.type === 'FOOD') { color = '#f59e0b'; iconChar = '🍲'; }
+        if (req.type === 'BOAT') { color = '#3b82f6'; iconChar = '🚣'; }
+        if (req.type === 'MEDICAL') { color = '#10b981'; iconChar = '⚕️'; }
+
+        // Create Marker
+        const customIcon = L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="
+                background: ${color};
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                border: 3px solid white;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                font-size: 16px;
+                z-index: 1000;
+            ">${iconChar}</div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+        const marker = L.marker([req.lat, req.lng], { icon: customIcon }).addTo(map);
+
+        // Bind Popup
+        const popupContent = `
+            <div style="text-align: center; font-family: 'Inter', sans-serif;">
+                <div style="background: ${color}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; display: inline-block; margin-bottom: 6px;">
+                    ${req.type} REQUEST
+                </div>
+                <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 4px;">${req.title}</div>
+                <div style="font-size: 0.8rem; color: #666;">
+                    Status: <strong>${req.status}</strong><br>
+                    <span style="color: #999;">${req.timestamp}</span>
+                </div>
+                <button style="margin-top: 8px; width: 100%; padding: 6px; background: #1a1a1a; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    View Details
+                </button>
+            </div>
+        `;
+
+        marker.bindPopup(popupContent);
+        markers.push({ marker, data: req });
+    });
+}
+
+// generateSOSCards function follows
+
+function generateSOSCards(container, countEl) {
+    if (!sosRequests) return;
+
+    // Convert to array if needed (already array in mock)
+    const requests = Array.isArray(sosRequests) ? sosRequests : [];
+
+    // Update Count
+    if (countEl) countEl.textContent = `${requests.length} active requests`;
+
+    // Sort by status (OPEN first)
+    requests.sort((a, b) => {
+        if (a.status === 'OPEN' && b.status !== 'OPEN') return -1;
+        if (a.status !== 'OPEN' && b.status === 'OPEN') return 1;
+        return 0;
+    });
+
+    requests.forEach(req => {
+        const card = document.createElement('div');
+        card.className = 'zone-card';
+        card.style.borderLeft = `4px solid ${req.type === 'FOOD' ? '#f59e0b' : req.type === 'MEDICAL' ? '#10b981' : '#ef4444'}`;
+
+        let statusBadge = req.status === 'OPEN'
+            ? '<span style="background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.6rem;">OPEN</span>'
+            : '<span style="background: #f59e0b; color: black; padding: 2px 6px; border-radius: 4px; font-size: 0.6rem;">IN PROG</span>';
+
+        card.innerHTML = `
+            <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 2px;">
+                    <span class="zone-name" style="font-size: 0.9rem;">${req.title}</span>
+                    ${statusBadge}
+                </div>
+                <div style="font-size: 0.75rem; color: #888; display: flex; align-items: center; gap: 6px;">
+                    <span>${req.type}</span> • <span>${req.timestamp}</span>
+                </div>
+            </div>
+        `;
+
+        card.addEventListener('click', () => {
+            map.flyTo([req.lat, req.lng], 16, { duration: 1 });
+            markers.forEach(m => {
+                if (m.data && m.data.id === req.id) {
+                    m.marker.openPopup();
+                }
+            });
+            // Switch to Simulator/Map tab
+            document.getElementById('tab-1').checked = true;
+            switchTab('simulator');
+        });
+
+        container.appendChild(card);
+    });
+}
+
+
+// UI Helper: Toggle Legend
+function toggleLegendBox() {
+    const legend = document.getElementById('mapLegend');
+    const chevron = document.getElementById('legendChevron');
+    if (legend) {
+        legend.classList.toggle('collapsed');
+        if (legend.classList.contains('collapsed')) {
+            // chevron.innerHTML = '◀'; 
+            if (chevron) chevron.style.transform = 'rotate(-90deg)';
+        } else {
+            // chevron.innerHTML = '▼';
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+}
+
+// Global Toggle for Community Layer
+function toggleCommunityLayer() {
+    communityLayerVisible = !communityLayerVisible;
+    const btn = document.getElementById('community-toggle');
+
+    communityMarkers.forEach(marker => {
+        if (communityLayerVisible) {
+            marker.addTo(map);
+        } else {
+            map.removeLayer(marker);
+        }
+    });
+
+    if (btn) {
+        if (communityLayerVisible) {
+            btn.innerHTML = '👥 Hide';
+            btn.style.opacity = '1';
+        } else {
+            btn.innerHTML = '👥 Show';
+            btn.style.opacity = '0.7';
+        }
+    }
+}
+
+// Show Shelters Function (Mock Data)
+function showSheltersOnMap() {
+    refreshMapData();
+    markers.forEach(m => map.removeLayer(m.marker));
+    markers = [];
+
+    const shelters = [
+        { title: "Atladara School Shelter", lat: 22.2700, lng: 73.1500, cap: 500, status: "Open", type: "SHELTER" },
+        { title: "Sama Sports Complex", lat: 22.3400, lng: 73.1900, cap: 1200, status: "Full", type: "SHELTER" },
+        { title: "Gotri Community Hall", lat: 22.3100, lng: 73.1400, cap: 300, status: "Open", type: "SHELTER" },
+        { title: "Manjalpur Gymkhana", lat: 22.2600, lng: 73.1950, cap: 600, status: "Open", type: "SHELTER" }
+    ];
+
+    shelters.forEach(s => {
+        const icon = L.divIcon({
+            className: 'shelter-marker',
+            html: `<div style="background: #10b981; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 16px;">🏠</div>`,
+            iconSize: [32, 32]
+        });
+
+        const marker = L.marker([s.lat, s.lng], { icon: icon }).addTo(map);
+
+        const popup = `
+            <div style="text-align: center; font-family: 'Inter', sans-serif;">
+                <h3 style="margin: 0 0 5px 0; color: #10b981;">${s.title}</h3>
+                <div style="font-size: 0.8rem; margin-bottom: 5px;">Capacity: <strong>${s.cap} people</strong></div>
+                <div style="display: inline-block; padding: 2px 8px; background: ${s.status === 'Open' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; color: ${s.status === 'Open' ? '#10b981' : '#ef4444'}; border-radius: 4px; font-weight: bold; font-size: 0.75rem;">
+                    ${s.status.toUpperCase()}
+                </div>
+                <button onclick="window.open('https://maps.google.com/?q=${s.lat},${s.lng}')" 
+                    style="display: block; width: 100%; margin-top: 8px; padding: 6px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Navigate
+                </button>
+            </div>
+        `;
+        marker.bindPopup(popup).openPopup();
+        markers.push({ marker, data: s });
+    });
+
+    const group = new L.featureGroup(markers.map(m => m.marker));
+    map.fitBounds(group.getBounds(), { padding: [50, 50] });
+
+    renderFeed(shelters.map((s, i) => ({
+        id: `shelter_${i}`,
+        type: "SHELTER",
+        title: s.title,
+        dist: "Nearby",
+        time: "Now",
+        lat: s.lat,
+        lng: s.lng
+    })));
+}
+
+
+// Show Shelters Function (Toggle - Final)
+function showSheltersToggle() {
+    const btn = document.getElementById('btn-shelters');
+
+    if (sheltersVisible) {
+        // TOGGLE OFF
+        refreshMapData();
+        renderFeed(currentReliefMockData);
+        sheltersVisible = false;
+
+        if (btn) {
+            btn.classList.remove('active');
+            btn.innerHTML = '<span>🏠</span> Find Shelters';
+            btn.style.background = '';
+        }
+        return;
+    }
+
+    // TOGGLE ON
+    refreshMapData();
+    markers.forEach(m => map.removeLayer(m.marker));
+    markers = [];
+
+    const shelters = [
+        { title: "Atladara School Shelter", lat: 22.2700, lng: 73.1500, cap: 500, status: "Open", type: "SHELTER" },
+        { title: "Sama Sports Complex", lat: 22.3400, lng: 73.1900, cap: 1200, status: "Full", type: "SHELTER" },
+        { title: "Gotri Community Hall", lat: 22.3100, lng: 73.1400, cap: 300, status: "Open", type: "SHELTER" },
+        { title: "Manjalpur Gymkhana", lat: 22.2600, lng: 73.1950, cap: 600, status: "Open", type: "SHELTER" }
+    ];
+
+    shelters.forEach(s => {
+        const icon = L.divIcon({
+            className: 'shelter-marker',
+            html: `<div style="background: #10b981; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 16px;">🏠</div>`,
+            iconSize: [32, 32]
+        });
+
+        const marker = L.marker([s.lat, s.lng], { icon: icon }).addTo(map);
+
+        const popup = `
+            <div style="text-align: center; font-family: 'Inter', sans-serif;">
+                <h3 style="margin: 0 0 5px 0; color: #10b981;">${s.title}</h3>
+                <div style="font-size: 0.8rem; margin-bottom: 5px;">Capacity: <strong>${s.cap} people</strong></div>
+                <div style="display: inline-block; padding: 2px 8px; background: ${s.status === 'Open' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; color: ${s.status === 'Open' ? '#10b981' : '#ef4444'}; border-radius: 4px; font-weight: bold; font-size: 0.75rem;">
+                    ${s.status.toUpperCase()}
+                </div>
+                <button onclick="window.open('https://maps.google.com/?q=${s.lat},${s.lng}')" 
+                    style="display: block; width: 100%; margin-top: 8px; padding: 6px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Navigate
+                </button>
+            </div>
+        `;
+        marker.bindPopup(popup).openPopup();
+        markers.push({ marker, data: s });
+    });
+
+    const group = new L.featureGroup(markers.map(m => m.marker));
+    map.fitBounds(group.getBounds(), { padding: [50, 50] });
+
+    renderFeed(shelters.map((s, i) => ({
+        id: `shelter_${i}`,
+        type: "SHELTER",
+        title: s.title,
+        dist: "Nearby",
+        time: "Now",
+        lat: s.lat,
+        lng: s.lng
+    })));
+
+    // Update Button
+    if (btn) {
+        btn.classList.add('active');
+        btn.innerHTML = '<span>❌</span> Hide Shelters';
+        btn.style.background = 'rgba(16, 185, 129, 0.2)';
+        sheltersVisible = true;
+    }
+}

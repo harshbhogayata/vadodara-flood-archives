@@ -435,6 +435,37 @@ function calculateFloodRisk(ajwaLevel, localRain, dhadharLevel) {
     return predictions;
 }
 
+// 5. MOCK DATA: RELIEF MODE (SOS REQUESTS)
+const sosRequests = [
+    {
+        id: "sos_001",
+        lat: 22.3150,
+        lng: 73.2080,
+        title: "Food Packets Needed for 5 families",
+        type: "FOOD",
+        status: "OPEN",
+        timestamp: "2 mins ago"
+    },
+    {
+        id: "sos_002",
+        lat: 22.3051,
+        lng: 73.1818,
+        title: "Urgent Boat Rescue - 3 Seniors trapped",
+        type: "BOAT",
+        status: "IN_PROGRESS",
+        timestamp: "5 mins ago"
+    },
+    {
+        id: "sos_003",
+        lat: 22.2885,
+        lng: 73.1750,
+        title: "Diabetic Medicine Required (Insulin)",
+        type: "MEDICAL",
+        status: "OPEN",
+        timestamp: "12 mins ago"
+    }
+];
+
 // Export for use in main app
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { floodZones, evidenceLedger, riverPhysics, chokePoints, calculateFloodRisk };

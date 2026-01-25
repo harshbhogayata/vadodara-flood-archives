@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
     <!-- Primary Meta Tags -->
-    <title>Vadodara Flood Archives | Risk Intelligence</title>
-    <meta name="title" content="Vadodara Flood Archives | Risk Intelligence">
+    <title>Vadodara Files</title>
+    <meta name="title" content="Vadodara Files">
     <meta name="description"
         content="Check flood risk for your area in Vadodara based on 2019-2025 satellite data. Interactive simulator and safety maps.">
     <meta name="keywords"
@@ -68,7 +68,7 @@
 
     <!-- NUCLEAR A - CACHE BUSTER SCRIPT (Force Update) -->
     <script>
-        const CURRENT_VERSION = 'v11-ui-fix';
+        const CURRENT_VERSION = 'v12-relief-mode';
         const lastVersion = localStorage.getItem('app_version');
 
         if (lastVersion !== CURRENT_VERSION) {
@@ -102,12 +102,21 @@
             }, 500);
         }
     </script>
+
+    <!-- Firebase SDK (Modular) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // We will expose these to window for our vanilla app to use, or Initialize inside app.js if we convert app.js to module
+        // For now, we'll keep app.js as standard script and mock the data flow as per plan,
+        // but these imports are here for future readiness.
+    </script>
 </head>
 
 <body>
     <!-- Legal Disclaimer Modal -->
     <div id="disclaimerModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="background: rgba(30, 30, 30, 0.98); color: white;">
             <div class="modal-header">
                 <h2>⚠️ Legal Disclaimer</h2>
             </div>
@@ -147,14 +156,21 @@
                 <div class="drag-pill"></div>
             </div>
 
-            <div class="sidebar-content">
+            <div class="sidebar-content" id="sidebar-container">
                 <div class="sidebar-header">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <h1 data-i18n="appTitle">Flood Archives</h1>
-                            <p data-i18n="appSubtitle">Vadodara Risk Intelligence</p>
+                            <h1 data-i18n="appTitle" id="app-title-text">Flood Archives</h1>
+                            <p data-i18n="appSubtitle" id="app-subtitle-text">Vadodara Risk Intelligence</p>
                         </div>
-                        <button id="langToggle" class="lang-toggle" title="Switch to Gujarati">ગુ</button>
+
+                        <!-- NEW: Mode Toggle -->
+                        <div class="mode-toggle-pill" id="modeToggle">
+                            <span class="mode-icon">🏛️</span>
+                            <span class="mode-label">ARCHIVE</span>
+                        </div>
+
+                        <!-- Lang Toggle Removed -->
                     </div>
                 </div>
 
@@ -225,6 +241,20 @@
                     <div id="zonesContainer" class="zones-container">
                         <!-- Zone cards will be dynamically generated here -->
                     </div>
+
+                    <!-- NEW: Volunteer Toggle (Relief Mode Only) -->
+                    <div id="volunteer-toggle-container"
+                        style="display: none; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px; border: 1px solid var(--glass-border);">
+                        <label
+                            style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <span style="font-size: 0.85rem; font-weight: 600;">🤝 I am a Volunteer</span>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="volunteerMode">
+                                <span class="slider round"></span>
+                            </div>
+                        </label>
+                    </div>
+
                     <div id="zoneCount" class="zone-count"></div>
                 </div>
 
@@ -235,39 +265,45 @@
             </div>
         </aside>
 
-        <!-- Map Legend -->
-        <div class="map-legend">
-            <h4>Risk Levels</h4>
-            <div class="legend-item">
-                <span class="legend-dot critical"></span>
-                <span>Critical (≥70)</span>
+        <!-- Map Legend (Collapsible) -->
+        <div class="map-legend" id="mapLegend">
+            <div class="legend-header" onclick="toggleLegendBox()">
+                <h4>Risk Levels</h4>
+                <span id="legendChevron" style="font-size: 0.8rem; opacity: 0.7;">▼</span>
             </div>
-            <div class="legend-item">
-                <span class="legend-dot high"></span>
-                <span>High (≥40)</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-dot moderate"></span>
-                <span>Moderate (≥15)</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-dot low"></span>
-                <span>Low Risk</span>
-            </div>
-            <div class="legend-item"
-                style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--glass-border);">
-                <span class="legend-river"></span>
-                <span>Vishwamitri</span>
-            </div>
-            <div class="legend-item"
-                style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--glass-border);">
-                <span class="legend-dot" style="background: #a855f7;"></span>
-                <span>Community Reports</span>
-                <button id="community-toggle"
-                    style="margin-left: 8px; padding: 2px 8px; font-size: 0.7rem; background: rgba(168,85,247,0.2); border: 1px solid #a855f7; border-radius: 4px; color: #a855f7; cursor: pointer;"
-                    aria-label="Toggle community reports layer">
-                    👥 Hide Community
-                </button>
+
+            <div id="legendContent">
+                <div class="legend-item">
+                    <span class="legend-dot critical"></span>
+                    <span>Critical (≥70)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot high"></span>
+                    <span>High (≥40)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot moderate"></span>
+                    <span>Moderate (≥15)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot low"></span>
+                    <span>Low Risk</span>
+                </div>
+                <div class="legend-item"
+                    style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--glass-border);">
+                    <span class="legend-river"></span>
+                    <span>Vishwamitri</span>
+                </div>
+                <div class="legend-item"
+                    style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--glass-border);">
+                    <span class="legend-dot" style="background: #a855f7;"></span>
+                    <span>Community Reports</span>
+                    <button id="community-toggle"
+                        style="margin-left: 8px; padding: 2px 8px; font-size: 0.7rem; background: rgba(168,85,247,0.2); border: 1px solid #a855f7; border-radius: 4px; color: #a855f7; cursor: pointer;"
+                        aria-label="Toggle community reports layer">
+                        👥 Hide
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -286,15 +322,51 @@
                     Your report will be verified and added to the map.
                 </p>
 
-                <iframe
-                    src="https://tally.so/embed/rjO0j5?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1"
-                    width="100%" height="400" frameborder="0" marginheight="0" marginwidth="0"
-                    sandbox="allow-scripts allow-forms allow-same-origin allow-popups" title="Vadodara Flood Report">
-                </iframe>
+                <!-- Default Archive Report -->
+                <div id="report-iframe-container">
+                    <iframe
+                        src="https://tally.so/embed/rjO0j5?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1"
+                        width="100%" height="400" frameborder="0" marginheight="0" marginwidth="0"
+                        sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+                        title="Vadodara Flood Report">
+                    </iframe>
+                </div>
+
+                <!-- NEW: Relief SOS Form -->
+                <div id="sos-form-container" style="display: none;">
+                    <div class="form-group">
+                        <label>What do you need?</label>
+                        <select id="sos-type" class="status-select" style="background: rgba(255,255,255,0.05);">
+                            <option value="FOOD">🍲 Food / Water</option>
+                            <option value="BOAT">🚣 Boat Rescue</option>
+                            <option value="MEDICAL">⚕️ Medical / Medicine</option>
+                            <option value="SHELTER">⛺ Shelter Request</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label>Details / Situation</label>
+                        <textarea id="sos-details"
+                            placeholder="Describe the situation (e.g., 5 people stuck on roof, diabetic patient...)"
+                            style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 10px; border-radius: 8px; color: white; min-height: 80px;"></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label>Contact Number</label>
+                        <input type="tel" id="sos-contact" placeholder="+91 XXXXX XXXXX"
+                            style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 10px; border-radius: 8px; color: white;">
+                    </div>
+
+                    <button id="submitRequest" class="btn-primary"
+                        style="margin-top: 1.5rem; background: #ef4444; width: 100%;">
+                        🚨 SEND SOS REQUEST
+                    </button>
+                    <p style="font-size: 0.75rem; color: #888; text-align: center; margin-top: 10px;">
+                        This will alert volunteers near your GPS location.
+                    </p>
+                </div>
             </div>
         </div>
-    </div>
-
     </div>
 
     <!-- About Modal -->
@@ -355,7 +427,16 @@
         }
 
         // Initialize language on page load
-        document.addEventListener('DOMContentLoaded', initLanguage);
+        document.addEventListener('DOMContentLoaded', function () {
+            initLanguage();
+
+            // DEBUG: Check if disclaimerModal exists
+            const modal = document.getElementById('disclaimerModal');
+            console.log('DEBUG: disclaimerModal element:', modal);
+            if (!modal) {
+                alert('ERROR: disclaimerModal not found in DOM!');
+            }
+        });
     </script>
 
     <!-- GoatCounter Analytics -->
