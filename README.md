@@ -47,4 +47,56 @@ Plain HTML, CSS, JavaScript, and Leaflet.js. No frameworks. Runs on any static h
 
 ---
 
-If you're from Vadodara and notice missing areas or wrong data, open an issue. This should be accurate.
+
+---
+
+# Android Integration 📱
+
+This project is now optimized to run as a native Android app using WebView.
+
+## 1. Setup in Android Studio
+
+1.  **Create New Project**: Select "Empty Activity" or "No Activity".
+2.  **Create Assets Folder**:
+    *   Right-click `app/src/main` -> New -> **Directory**.
+    *   Name it `assets`.
+3.  **Copy Files**:
+    *   Copy ALL files from this folder (`index.html`, `style.css`, `app.js`, `manifest.json`, etc.) into `app/src/main/assets/`.
+
+## 2. WebView Code (Kotlin)
+
+Paste this into your `MainActivity.kt`:
+
+```kotlin
+// MainActivity.kt
+import android.webkit.WebView
+import android.webkit.WebViewClient
+
+class MainActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        val myWebView: WebView = findViewById(R.id.webview)
+        
+        myWebView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            allowFileAccess = true
+            geolocationEnabled = true
+        }
+
+        myWebView.webViewClient = WebViewClient()
+        myWebView.loadUrl("file:///android_asset/index.html")
+    }
+}
+```
+
+## 3. Permissions (AndroidManifest.xml)
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+```
+
