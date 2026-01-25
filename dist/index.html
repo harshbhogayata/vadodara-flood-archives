@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <!-- Primary Meta Tags -->
+    <title>Vadodara Files</title>
+    <meta name="title" content="Vadodara Files">
+    <meta name="description"
+        content="Check flood risk for your area in Vadodara based on 2019-2025 satellite data. Interactive simulator and safety maps.">
+    <meta name="keywords"
+        content="Vadodara flood, flood map, Vishwamitri river, flood risk, Gujarat flood, VMC, ISRO, flood warning">
+    <meta name="author" content="Civic Tech Initiative">
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://vadodara-flood-archives.vercel.app/">
+    <meta property="og:title" content="Vadodara Flood Archives 🌧️">
+    <meta property="og:description"
+        content="Is your society in a Red Zone? Check historical flood data and run risk simulations for 50+ verified locations.">
+    <meta property="og:image" content="https://vadodara-flood-archives.vercel.app/social-preview.png">
+    <meta property="og:locale" content="en_IN">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://vadodara-flood-archives.vercel.app/">
+    <meta property="twitter:title" content="Vadodara Flood Archives 🌧️">
+    <meta property="twitter:description"
+        content="Is your society in a Red Zone? Check historical flood data and run risk simulations.">
+    <meta property="twitter:image" content="https://vadodara-flood-archives.vercel.app/social-preview.png">
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#0a0a0a">
+    <meta name="msapplication-TileColor" content="#0a0a0a">
+
+    <!-- PWA / Android Assets -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" href="./social-preview.png">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Critical CSS - Inline to prevent map gray screen race condition -->
+    <style>
+        /* Ensure map has size before main CSS loads */
+        #map {
+            height: 100vh;
+            width: 100%;
+            background: #0a0a0a;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        html {
+            height: 100%;
+        }
+    </style>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- NUCLEAR A - CACHE BUSTER SCRIPT (Force Update) -->
+    <script>
+        const CURRENT_VERSION = 'v12-relief-mode';
+        const lastVersion = localStorage.getItem('app_version');
+
+        if (lastVersion !== CURRENT_VERSION) {
+            console.log(`🚀 New version detected: ${CURRENT_VERSION} (was ${lastVersion}). Nuke cache & reload.`);
+
+            // Unregister Service Workers
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                    for (let registration of registrations) {
+                        registration.unregister();
+                        console.log('🧹 Service Worker unregistered.');
+                    }
+                });
+            }
+
+            // Clear Cache Storage
+            if ('caches' in window) {
+                caches.keys().then(function (names) {
+                    for (let name of names) {
+                        caches.delete(name);
+                        console.log('🧹 Cache deleted:', name);
+                    }
+                });
+            }
+
+            // Update version and reload
+            localStorage.setItem('app_version', CURRENT_VERSION);
+            // Wait a split second for async clear then force reload
+            setTimeout(() => {
+                window.location.reload(true);
+            }, 500);
+        }
+    </script>
+
+    <!-- Firebase SDK (Modular) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // We will expose these to window for our vanilla app to use, or Initialize inside app.js if we convert app.js to module
+        // For now, we'll keep app.js as standard script and mock the data flow as per plan,
+        // but these imports are here for future readiness.
+    </script>
+</head>
+
+<body>
+    <!-- Legal Disclaimer Modal -->
+    <div id="disclaimerModal" class="modal">
+        <div class="modal-content" style="background: rgba(30, 30, 30, 0.98); color: white;">
+            <div class="modal-header">
+                <h2>⚠️ Legal Disclaimer</h2>
+            </div>
+            <div class="modal-body">
+                <p style="text-transform: uppercase; color: #ef4444; font-weight: bold; font-size: 0.9rem;">
+                    Strictly for informational & research purposes only.
+                </p>
+                <div
+                    style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; font-size: 0.9rem; margin: 12px 0;">
+                    <ul>
+                        <li><strong>Not Official:</strong> This app is NOT affiliated with VMC, Govt of Gujarat, or
+                            Disaster Management Authorities.</li>
+                        <li><strong>No Liability:</strong> The creators accept <strong>NO LIABILITY</strong> for any
+                            loss, damage, or injury resulting from the use of this data.</li>
+                        <li><strong>Volunteer Effort:</strong> Data is crowdsourced and archive-based. It may contain
+                            inaccuracies.</li>
+                        <li><strong>Do Not Rely:</strong> Do NOT use this tool for critical safety decisions, real
+                            estate valuation, or emergency navigation.</li>
+                    </ul>
+                </div>
+                <p style="font-size: 0.85rem; color: #aaa;">
+                    For official alerts and emergency assistance, always contact local authorities (VMC/Fire Dept)
+                    directly.
+                </p>
+            </div>
+            <div class="modal-actions">
+                <button id="acceptDisclaimer" class="btn-primary">I Understand — Enter Map</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" class="app-hidden">
+
+        <!-- Fullscreen Map -->
+        <div id="map"></div>
+
+        <!-- Floating Glass Sidebar -->
+        <aside class="glass-sidebar" id="sidebar">
+
+            <!-- Drag Handle Area -->
+            <div id="drag-handle-area" aria-label="Drag to resize sidebar" role="button" tabindex="0">
+                <div class="drag-pill"></div>
+            </div>
+
+            <div class="sidebar-content" id="sidebar-container">
+                <div class="sidebar-header">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h1 data-i18n="appTitle" id="app-title-text">Flood Archives</h1>
+                            <p data-i18n="appSubtitle" id="app-subtitle-text">Vadodara Risk Intelligence</p>
+                        </div>
+
+                        <!-- NEW: Mode Toggle -->
+                        <div class="mode-toggle-pill" id="modeToggle">
+                            <span class="mode-icon">🏛️</span>
+                            <span class="mode-label">ARCHIVE</span>
+                        </div>
+
+                        <!-- Lang Toggle Removed -->
+                    </div>
+                </div>
+
+                <!-- Action Buttons: Am I Safe? & Report Flood -->
+                <div class="action-row" style="display: flex; gap: 10px; margin-bottom: 1rem;">
+                    <button id="safety-btn" class="btn-action btn-safe">
+                        <span>📍</span> Am I Safe?
+                    </button>
+                    <button id="menu-report-btn" class="btn-action btn-report">
+                        <span>📢</span> Report
+                    </button>
+                </div>
+
+                <!-- Segmented Control Toggle -->
+                <div class="segmented-control">
+                    <input type="radio" name="tab" id="tab-1" checked>
+                    <label for="tab-1" data-i18n="tabSimulator">⚡ Simulator</label>
+
+                    <input type="radio" name="tab" id="tab-2">
+                    <label for="tab-2" data-i18n="tabAnalysis">📊 Analysis</label>
+
+                    <div class="glider"></div>
+                </div>
+
+                <!-- Tab 1: Simulator Panel -->
+                <div id="panel-simulator" class="tab-content active">
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>Ajwa Dam Level</span>
+                            <span class="slider-value" id="ajwaValue">212.0 ft</span>
+                        </div>
+                        <input type="range" id="ajwaLevel" min="210" max="215" step="0.5" value="212">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>Rainfall (24hr)</span>
+                            <span class="slider-value" id="rainValue">0 in</span>
+                        </div>
+                        <input type="range" id="localRain" min="0" max="10" step="0.5" value="0">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-label"><span>Dhadhar River</span></div>
+                        <select id="dhadharStatus" class="status-select">
+                            <option value="NORMAL">Normal Flow</option>
+                            <option value="HIGH">High (Backflow Risk)</option>
+                        </select>
+                    </div>
+
+                    <button id="runSimulation" class="btn-simulate">
+                        ⚡ Run Forecast
+                    </button>
+
+                    <!-- Prediction Results -->
+                    <div id="predictionResults" class="prediction-results hidden">
+                        <h3>Results</h3>
+                        <div id="resultsList"></div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Analysis Panel (All Zones) -->
+                <div id="panel-analysis" class="tab-content">
+                    <div class="zone-search-container">
+                        <input type="text" id="zoneSearch" class="zone-search-input"
+                            placeholder="🔍 Search zones (e.g., Vadsar)..." oninput="filterZones()">
+                    </div>
+                    <div id="zonesContainer" class="zones-container">
+                        <!-- Zone cards will be dynamically generated here -->
+                    </div>
+
+                    <!-- NEW: Volunteer Toggle (Relief Mode Only) -->
+                    <div id="volunteer-toggle-container"
+                        style="display: none; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 10px; border: 1px solid var(--glass-border);">
+                        <label
+                            style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                            <span style="font-size: 0.85rem; font-weight: 600;">🤝 I am a Volunteer</span>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="volunteerMode">
+                                <span class="slider round"></span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div id="zoneCount" class="zone-count"></div>
+                </div>
+
+                <!-- Footer -->
+                <div class="sidebar-footer">
+                    <a href="#" id="disclaimerLink">Disclaimer</a> · <a href="#" id="aboutBtn">About</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Map Legend (Collapsible) -->
+        <div class="map-legend" id="mapLegend">
+            <div class="legend-header" onclick="toggleLegendBox()">
+                <h4>Risk Levels</h4>
+                <span id="legendChevron" style="font-size: 0.8rem; opacity: 0.7;">▼</span>
+            </div>
+
+            <div id="legendContent">
+                <div class="legend-item">
+                    <span class="legend-dot critical"></span>
+                    <span>Critical (≥70)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot high"></span>
+                    <span>High (≥40)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot moderate"></span>
+                    <span>Moderate (≥15)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot low"></span>
+                    <span>Low Risk</span>
+                </div>
+                <div class="legend-item"
+                    style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--glass-border);">
+                    <span class="legend-river"></span>
+                    <span>Vishwamitri</span>
+                </div>
+                <div class="legend-item"
+                    style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--glass-border);">
+                    <span class="legend-dot" style="background: #a855f7;"></span>
+                    <span>Community Reports</span>
+                    <button id="community-toggle"
+                        style="margin-left: 8px; padding: 2px 8px; font-size: 0.7rem; background: rgba(168,85,247,0.2); border: 1px solid #a855f7; border-radius: 4px; color: #a855f7; cursor: pointer;"
+                        aria-label="Toggle community reports layer">
+                        👥 Hide
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Live Report Modal -->
+    <div id="report-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3>📢 Submit Live Report</h3>
+                <button class="close-btn" aria-label="Close modal">×</button>
+            </div>
+
+            <div class="modal-body">
+                <p style="color: #ccc; font-size: 0.9rem; margin-bottom: 1rem;">
+                    Your report will be verified and added to the map.
+                </p>
+
+                <!-- Default Archive Report -->
+                <div id="report-iframe-container">
+                    <iframe
+                        src="https://tally.so/embed/rjO0j5?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1"
+                        width="100%" height="400" frameborder="0" marginheight="0" marginwidth="0"
+                        sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+                        title="Vadodara Flood Report">
+                    </iframe>
+                </div>
+
+                <!-- NEW: Relief SOS Form -->
+                <div id="sos-form-container" style="display: none;">
+                    <div class="form-group">
+                        <label>What do you need?</label>
+                        <select id="sos-type" class="status-select" style="background: rgba(255,255,255,0.05);">
+                            <option value="FOOD">🍲 Food / Water</option>
+                            <option value="BOAT">🚣 Boat Rescue</option>
+                            <option value="MEDICAL">⚕️ Medical / Medicine</option>
+                            <option value="SHELTER">⛺ Shelter Request</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label>Details / Situation</label>
+                        <textarea id="sos-details"
+                            placeholder="Describe the situation (e.g., 5 people stuck on roof, diabetic patient...)"
+                            style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 10px; border-radius: 8px; color: white; min-height: 80px;"></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label>Contact Number</label>
+                        <input type="tel" id="sos-contact" placeholder="+91 XXXXX XXXXX"
+                            style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 10px; border-radius: 8px; color: white;">
+                    </div>
+
+                    <button id="submitRequest" class="btn-primary"
+                        style="margin-top: 1.5rem; background: #ef4444; width: 100%;">
+                        🚨 SEND SOS REQUEST
+                    </button>
+                    <p style="font-size: 0.75rem; color: #888; text-align: center; margin-top: 10px;">
+                        This will alert volunteers near your GPS location.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>About This Archive</h2>
+                <button class="modal-close" id="closeAbout">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3 style="margin-bottom: 0.75rem; color: var(--text-primary);">Methodology</h3>
+                <p>Risk scores are calculated using a <strong>Weighted Scoring Algorithm</strong>:</p>
+                <ul>
+                    <li>2024/2025 Status: 35 points each (most relevant)</li>
+                    <li>2019 Status: 20 points (historic benchmark)</li>
+                    <li>Severity Multiplier: Submerged/Marooned = 1.0x, Waterlogged = 0.5x</li>
+                </ul>
+
+                <h3 style="margin: 1rem 0 0.75rem; color: var(--text-primary);">Data Sources</h3>
+                <ul>
+                    <li><strong>Satellite:</strong> ISRO Bhuvan (Sentinel-1A)</li>
+                    <li><strong>Government:</strong> VMC Bulletins (2019-2025)</li>
+                    <li><strong>News:</strong> Times of India, DeshGujarat, ABP</li>
+                </ul>
+
+                <h3 style="margin: 1rem 0 0.75rem; color: var(--text-primary);">River Physics</h3>
+                <ul>
+                    <li><strong>Danger Level:</strong> 26 ft</li>
+                    <li><strong>Critical Level:</strong> 31 ft (water enters city)</li>
+                    <li><strong>2024 Record:</strong> 37 ft</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="data.js?v=12"></script>
+    <script src="translations.js?v=12"></script>
+    <script src="app.js?v=12"></script>
+    <script>
+        // Service Worker Registration (Progressive Web App)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Use relative path for Android WebView compatibility
+                navigator.serviceWorker.register('./sw.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registered:', registration.scope);
+
+                        // Check for updates every 24 hours
+                        setInterval(() => {
+                            registration.update();
+                        }, 86400000);
+                    })
+                    .catch((error) => {
+                        console.warn('Service Worker registration failed:', error);
+                    });
+            });
+        }
+
+        // Initialize language on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            initLanguage();
+
+            // DEBUG: Check if disclaimerModal exists
+            const modal = document.getElementById('disclaimerModal');
+            console.log('DEBUG: disclaimerModal element:', modal);
+            if (!modal) {
+                alert('ERROR: disclaimerModal not found in DOM!');
+            }
+        });
+    </script>
+
+    <!-- GoatCounter Analytics -->
+    <script data-goatcounter="https://harshbhogayata.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</body>
+
+</html>
