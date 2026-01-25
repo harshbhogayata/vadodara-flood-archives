@@ -34,33 +34,6 @@ A built-in mode for active emergency response.
 
 ---
 
-## 📱 Android Integration
-
-This project is optimized to run as a native Android app.
-
-**1. Setup in Android Studio**
-- Create a new "Empty Activity" project.
-- Create an `assets` folder in `app/src/main/`.
-- Copy ALL files from this repo (`index.html`, `style.css`, `app.js`, `manifest.json`, etc.) into `assets/`.
-
-**2. WebView Code (Kotlin)**
-Add this to your `MainActivity.kt`:
-
-```kotlin
-myWebView.settings.apply {
-    javaScriptEnabled = true
-    domStorageEnabled = true
-    databaseEnabled = true
-    allowFileAccess = true
-    geolocationEnabled = true // Required for "Am I Safe?"
-}
-myWebView.loadUrl("file:///android_asset/index.html")
-```
-
-**3. Build & Install**
-Run `./gradlew installDebug` to install on your connected phone.
-
----
 
 ## Technical Details
 
